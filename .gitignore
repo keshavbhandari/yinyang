@@ -1,0 +1,19 @@
+# .gitignore
+cache/
+phrase_chooser/
+artifacts/phrase_generation/
+artifacts/phrase_refinement/
+artifacts/phrase_selection/
+artifacts/motif_refinement/
+artifacts/autoregressive_transformer/
+artifacts/cp_transformer/
+artifacts/phrase_similarity/
+data/Mono_Midi_Files/
+data/extracted_phrases/
+data/annotations/
+output/
+*.pyc
+*.pth
+checkpoint.pth
+__pycache__/
+lightning_logs/

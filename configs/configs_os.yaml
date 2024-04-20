@@ -1,0 +1,117 @@
+
+model:
+  phrase_refinement_model:
+    encoder_max_sequence_length: 1024
+    decoder_max_sequence_length: 512
+    num_layers: 4
+    num_heads: 4
+    hidden_size: 512
+    intermediate_size: 2048
+  phrase_generation_model:
+    encoder_max_sequence_length: 2048
+    decoder_max_sequence_length: 512
+    num_layers: 4
+    num_heads: 4
+    hidden_size: 512
+    intermediate_size: 2048
+  phrase_selection_model:
+    max_sequence_length: 512
+    num_layers: 4
+    num_heads: 4
+    hidden_size: 512
+    intermediate_size: 2048
+    projection_size: 128
+  phrase_similarity_model:
+    max_sequence_length: 1024
+    num_layers: 4
+    num_heads: 4
+    hidden_size: 512
+    intermediate_size: 2048
+    projection_size: 128
+  motif_refinement_model:
+    encoder_max_sequence_length: 512
+    decoder_max_sequence_length: 512
+    num_layers: 4
+    num_heads: 4
+    hidden_size: 512
+    intermediate_size: 2048
+
+training:
+  phrase_refinement:
+    epochs: 30
+    batch_size: 128
+    learning_rate: 0.0001
+    validation_split: 0.1
+    test_split: 100
+    weight_decay: 0.01
+    max_grad_norm: 3.0
+    gradient_accumulation_steps: 1
+  phrase_generation:
+    epochs: 30
+    batch_size: 56
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    max_grad_norm: 3.0
+    gradient_accumulation_steps: 1
+  phrase_selection:
+    epochs: 30
+    batch_size: 256
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    gradient_accumulation_steps: 1
+  phrase_similarity:
+    epochs: 30
+    batch_size: 128
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    gradient_accumulation_steps: 1
+  motif_refinement:
+    epochs: 30
+    batch_size: 128
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    gradient_accumulation_steps: 1
+
+raw_data:
+  raw_data_folders: 
+    dataset_1: 
+      folder_path: C:/Users/Keshav/Desktop/QMUL/Research/Datasets/MTC/essen
+      file_extension: krn
+      annotation_filepath: data/annotations/essen_sequences-1.1.jsonl/essen_sequences.jsonl
+    dataset_2: 
+      folder_path: C:/Users/Keshav/Desktop/QMUL/Research/Datasets/MTC/mtc-ann-2.0.1/MTC-ANN-2.0.1/krn
+      file_extension: krn
+      annotation_filepath: data/annotations/MTC-ANN-2.0.1_sequences-1.1.jsonl/mtcann_sequences.jsonl
+    dataset_3: 
+      folder_path: C:/Users/Keshav/Desktop/QMUL/Research/Datasets/MTC/MTC-FS-INST-2.0/MTC-FS-INST-2.0/krn
+      file_extension: krn
+      annotation_filepath: data/annotations/MTC-FS-INST-2.0_sequences-1.1.jsonl/mtcfsinst_sequences.jsonl
+  mono_folder: data/Mono_Midi_Files
+  json_folder: data/extracted_phrases
+  artifact_folder: artifacts
+
+# generation:
+#   generate_all: false
+#   test_filepath: NLB138204_01.json
+#   use_velocity: false
+#   use_phrase_selection: true
+#   structure: AAAA
+#   phrases_per_section: [5, 5, 5, 5]
+#   ratio:
+#     phrase_generation_frequency: 2
+#     phrase_refinement_frequency: 1
+#     motif_repetition_frequency: 100
+
+generation:
+  generate_all: false
+  test_filepath:
+  use_velocity: false
+  use_phrase_selection: true
+  structure: ABACA
+  phrases_per_section: [5, 5, 3, 5, 3]
+  transformations: ["contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"]
+  allow_modulation: false
+  ratio:
+    phrase_generation_frequency: 2
+    phrase_refinement_frequency: 1
+    motif_repetition_frequency: 50
