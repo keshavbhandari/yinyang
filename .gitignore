@@ -1,5 +1,6 @@
 # .gitignore
 cache/
+__pycache__/
 phrase_chooser/
 artifacts/phrase_generation/
 artifacts/phrase_refinement/
@@ -11,9 +12,9 @@ artifacts/phrase_similarity/
 data/Mono_Midi_Files/
 data/extracted_phrases/
 data/annotations/
+lightning_logs/
 output/
+artifacts.zip
+data.zip
 *.pyc
 *.pth
-checkpoint.pth
-__pycache__/
-lightning_logs/
