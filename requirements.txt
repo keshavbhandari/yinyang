@@ -1,0 +1,17 @@
+axial_positional_embedding==0.2.1
+einops==0.7.0
+evaluate==0.4.1
+jsonlines==4.0.0
+linformer==0.2.3
+local_attention==1.9.0
+miditok==3.0.2
+miditoolkit==0.1.16
+music21==9.1.0
+numpy==1.26.4
+product_key_memory==0.2.10
+PyYAML==6.0.1
+scikit_learn==1.3.0
+torch==2.2.0
+tqdm==4.66.2
+transformers==4.34.1
+vendi_score==0.0.3
