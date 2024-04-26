@@ -371,7 +371,9 @@ def fix_bar_onset(melodic_development_obj, structure, generated_phrase, new_sect
         onset_gen = onset + duration + 1
         bar_number_gen = bar_number
         if onset_gen >= melodic_development_obj.beats_in_bar:
-            onset_gen = 0 # Change this to 1 to add silence before new section
+            # Onset_gen should be remainder of onset_gen and beats_in_bar
+            onset_gen = onset_gen % melodic_development_obj.beats_in_bar
+            # onset_gen = 0 # Change this to 1 to add silence before new section
             bar_number_gen = bar_number + 1
     elif onset_gen < onset + duration:
         onset_gen = onset + duration + 1
