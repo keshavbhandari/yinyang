@@ -86,6 +86,9 @@ raw_data:
       folder_path: C:/Users/Keshav/Desktop/QMUL/Research/Datasets/MTC/MTC-FS-INST-2.0/MTC-FS-INST-2.0/krn
       file_extension: krn
       annotation_filepath: data/annotations/MTC-FS-INST-2.0_sequences-1.1.jsonl/mtcfsinst_sequences.jsonl
+    classical:
+      folder_path: /import/c4dm-datasets/maestro-v3.0.0
+      file_extension: midi
   mono_folder: data/Mono_Midi_Files
   json_folder: data/extracted_phrases
   artifact_folder: artifacts
@@ -102,16 +105,30 @@ raw_data:
 #     phrase_refinement_frequency: 1
 #     motif_repetition_frequency: 100
 
+# generation:
+#   generate_all: false
+#   test_filepath: belgium1.json
+#   use_velocity: false
+#   use_phrase_selection: true
+#   structure: ABACA
+#   phrases_per_section: [5, 5, 3, 5, 3]
+#   transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
+#   allow_modulation: false
+#   ratio:
+#     phrase_generation_frequency: 2
+#     phrase_refinement_frequency: 1
+#     motif_repetition_frequency: 50
+
 generation:
   generate_all: false
-  test_filepath:
+  test_filepath: china03.json
   use_velocity: false
   use_phrase_selection: true
   structure: ABACA
-  phrases_per_section: [5, 5, 3, 5, 3]
-  transformations: ["contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"]
+  phrases_per_section: [4, 4, 4, 4, 4]
+  transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
   allow_modulation: false
   ratio:
-    phrase_generation_frequency: 2
+    phrase_generation_frequency: 1
     phrase_refinement_frequency: 1
     motif_repetition_frequency: 50
