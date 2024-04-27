@@ -2,7 +2,6 @@ from transformers import EncoderDecoderModel, AutoModelForSequenceClassification
 import torch
 from torch.cuda import is_available as cuda_available, is_bf16_supported
 import torch.nn.functional as F
-from miditok import TokSequence
 import pickle
 import yaml
 import json
