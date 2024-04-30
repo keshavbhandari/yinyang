@@ -119,16 +119,30 @@ raw_data:
 #     phrase_refinement_frequency: 1
 #     motif_repetition_frequency: 50
 
+# generation:
+#   generate_all: false
+#   test_filepath: danmark1.json
+#   use_velocity: false
+#   use_phrase_selection: true
+#   structure: ABACA
+#   phrases_per_section: [5, 5, 5, 5, 5]
+#   transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
+#   allow_modulation: false
+#   ratio:
+#     phrase_generation_frequency: 2
+#     phrase_refinement_frequency: 1
+#     motif_repetition_frequency: 50
+
 generation:
   generate_all: false
-  test_filepath: china03.json
+  test_filepath: belgium1.json
   use_velocity: false
   use_phrase_selection: true
-  structure: ABACA
-  phrases_per_section: [4, 4, 4, 4, 4]
+  structure: ABBAA
+  phrases_per_section: [5, 2, 5, 5, 3]
   transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
   allow_modulation: false
   ratio:
-    phrase_generation_frequency: 1
+    phrase_generation_frequency: 2
     phrase_refinement_frequency: 1
     motif_repetition_frequency: 50

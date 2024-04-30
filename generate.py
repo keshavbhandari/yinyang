@@ -517,8 +517,13 @@ def generate(generation_configs, test_file, phrase_refiner_model, phrase_generat
                 # Generate a new motif using the phrase refinement model with low similarity to a previous phrase
                 # Get a random phrase from the previous section
                 previous_section_phrases = structure['sections'][f'section_{section_number-1}']
-                random_phrase = random.choice(list(previous_section_phrases.values()))
+                random_phrase_key = random.choice(list(previous_section_phrases.keys()))
+                random_phrase_number = int(random_phrase_key.split('_')[1])
+                print("\n", "Random phrase chosen from previous section: section number: ", section_number-1, ", phrase number: ", random_phrase_number)
+                random_phrase = previous_section_phrases[random_phrase_key]
+                # random_phrase = random.choice(list(previous_section_phrases.values()))
                 # Length of the phrase
+                # phrase_length = len(structure['current_motif'])
                 phrase_length = random.randint(9, 16)
 
                 # Get last phrase of the previous section
@@ -527,10 +532,18 @@ def generate(generation_configs, test_file, phrase_refiner_model, phrase_generat
 
                 # Get the last note of the last bar of the previous phrase
                 one_note_phrase = melodic_development_obj.group_by_bar(previous_phrase)
-                one_note_phrase = [one_note_phrase[-1][-1]]
+                # one_note_phrase = [one_note_phrase[-1][-1]]
+                one_note_phrase = one_note_phrase[-1]
                         
                 # Get the bar index of the last note in the phrase
-                reset_bar_index = previous_phrase[-1][0] #+ 1
+                duration = previous_phrase[-1][4]
+                bar_number = previous_phrase[-1][0]
+                onset = previous_phrase[-1][1]
+                if onset + duration >= melodic_development_obj.beats_in_bar:
+                    reset_bar_index = bar_number + 1
+                else:
+                    reset_bar_index = bar_number
+                # reset_bar_index = previous_phrase[-1][0] #+ 1
                 if allow_modulation:
                     # Get a new key signature that is either 4, 5 or 7 semitones higher
                     key_signature = transpose_key(key_signature, random.choice([4, 5, 7]))
