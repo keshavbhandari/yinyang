@@ -135,7 +135,7 @@ raw_data:
 
 generation:
   generate_all: false
-  test_filepath: belgium1.json
+  test_filepath:
   use_velocity: false
   use_phrase_selection: true
   structure: ABBAA
