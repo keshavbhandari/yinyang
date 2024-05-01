@@ -41,6 +41,7 @@ for d in duration:
 # Special tokens
 vocab[('prefix', 'instrument', 'piano')] = len(vocab)
 vocab["<T>"] = len(vocab)
+vocab["<D>"] = len(vocab)
 vocab["<S>"] = len(vocab)
 vocab["<E>"] = len(vocab)
 vocab["SEP"] = len(vocab)
@@ -53,6 +54,6 @@ print(f"Vocabulary length: {len(vocab)}")
 tokenizer_folder = os.path.join(artifact_folder, "fusion")
 # Make directory if it doesn't exist
 os.makedirs(tokenizer_folder, exist_ok=True)
-vocab_path = os.path.join(tokenizer_folder, "vocab.pkl")
+vocab_path = os.path.join(tokenizer_folder, "vocab.json")
 with open(os.path.join(tokenizer_folder, "vocab.pkl"), 'wb') as f:
     pickle.dump(vocab, f)

@@ -10,7 +10,7 @@ import os
 import argparse
 import random
 # from phrase_refiner.data_loader import JSONDataset
-from phrase_refiner.transformations import Melodic_Development, Phrase_Corruption, duration_mapping, reverse_duration_mapping
+from phrase_refiner.transformations import Melodic_Development, Phrase_Corruption
 from utils.utils import list_to_remi_encoding, encoding_to_midi, string_to_list_encoding, find_beats_in_bar
 
 # Parse command line arguments

@@ -123,25 +123,6 @@ def encoding_to_midi(encoding, tempo_dict, time_signature, midi_file_path="outpu
     score.write('midi', fp=midi_file_path)
 
 
-
-duration_mapping = {'0.1.8': 1, '0.2.8': 2, '0.3.8': 3, '0.4.8': 4, '0.5.8': 5, '0.6.8': 6, '0.7.8': 7, '1.0.8': 8,
-                    '1.1.8': 9, '1.2.8': 10, '1.3.8': 11, '1.4.8': 12, '1.5.8': 13, '1.6.8': 14, '1.7.8': 15,
-                    '2.0.8': 16, '2.1.8': 17, '2.2.8': 18, '2.3.8': 19, '2.4.8': 20, '2.5.8': 21, '2.6.8': 22,
-                    '2.7.8': 23, '3.0.8': 24, '3.1.8': 25, '3.2.8': 26, '3.3.8': 27, '3.4.8': 28, '3.5.8': 29,
-                    '3.6.8': 30, '3.7.8': 31, '4.0.4': 32, '4.1.4': 34, '4.2.4': 36, '4.3.4': 38, '5.0.4': 40,
-                    '5.1.4': 42, '5.2.4': 44, '5.3.4': 46, '6.0.4': 48, '6.1.4': 50, '6.2.4': 52, '6.3.4': 54,
-                    '7.0.4': 56, '7.1.4': 58, '7.2.4': 60, '7.3.4': 62, '8.0.4': 64, '8.1.4': 66, '8.2.4': 68,
-                    '8.3.4': 70, '9.0.4': 72, '9.1.4': 74, '9.2.4': 76, '9.3.4': 78, '10.0.4': 80, '10.1.4': 82,
-                    '10.2.4': 84, '10.3.4': 86, '11.0.4': 88, '11.1.4': 90, '11.2.4': 92, '11.3.4': 94, '12.0.4': 96}
-
-reverse_duration_mapping = {v: k for k, v in duration_mapping.items()}
-
-def find_key(duration_value):    
-    for key in duration_mapping.keys():
-        if duration_mapping[key] == duration_value:
-            return key
-
-
 pos_resolution = 4 # 16  # per beat (quarter note)
 bar_max = 32
 velocity_quant = 4
@@ -255,191 +236,109 @@ def normalize_to_c_major(e):
          for i in e]
     return e, is_major, pitch_shift
 
-def t2e(x):
-    assert x in ts_dict, 'unsupported time signature: ' + str(x)
-    return ts_dict[x]
 
-def e2t(x):
-    return ts_list[x]
+# Define a function to flatten the tokenized sequence
+def flatten(sequence):
+    flattened_sequence = []
+    note_info = []
+    for i in range(len(sequence)):
+        if sequence[i] == "<T>":
+            flattened_sequence.append(sequence[i])
+        if sequence[i][0] == "piano":
+            note_info.append(sequence[i][1])
+            note_info.append(sequence[i][2])
+        elif sequence[i][0] == "onset":
+            note_info.append(sequence[i][1])
+        elif sequence[i][0] == "dur":
+            note_info.append(sequence[i][1])
+            flattened_sequence.append(note_info) 
+            note_info = []
 
-def d2e(x):
-    return dur_enc[x] if x < len(dur_enc) else dur_enc[-1]
+    return flattened_sequence
 
-def e2d(x):
-    return dur_dec[x] if x < len(dur_dec) else dur_dec[-1]
+# Skyline function for separating melody and harmony from the tokenized sequence
+def skyline(sequence: list, diff_threshold=50):
+    melody = []
+    harmony = []
+    pointer_pitch = sequence[0][0]
+    pointer_velocity = sequence[0][1]
+    pointer_onset = sequence[0][2]
+    pointer_duration = sequence[0][3]
+    melody_onset_duration_tracker = pointer_onset + pointer_duration
+    harmony_onset_duration_tracker = pointer_onset + pointer_duration
+    i = 0
 
-def v2e(x):
-    return x // velocity_quant
+    for i in range(1, len(sequence)):
+        if type(sequence[i]) != str:
+            current_pitch = sequence[i][0]
+            current_velocity = sequence[i][1]
+            current_onset = sequence[i][2]
+            current_duration = sequence[i][3]
 
-def e2v(x):
-    return (x * velocity_quant) + (velocity_quant // 2)
+            if type(sequence[i-1]) == str and type(sequence[i-2]) == str:
+                diff_curr_prev_onset = 5000
+            elif type(sequence[i-1]) == str and type(sequence[i-2]) != str:
+                diff_curr_prev_onset = abs(current_onset - sequence[i-2][2])
+            else:
+                diff_curr_prev_onset = abs(current_onset - sequence[i-1][2])
 
-def b2e(x):
-    x = max(x, min_tempo)
-    x = min(x, max_tempo)
-    x = x / min_tempo
-    e = round(math.log2(x) * tempo_quant)
-    return e
+            if diff_curr_prev_onset > diff_threshold:
+                # Append <t> based on condition
+                if melody_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
+                    melody.append("<T>")
+                # Append the previous note
+                melody.append(("piano", pointer_pitch, pointer_velocity))
+                melody.append(("onset", pointer_onset))
+                melody.append(("dur", pointer_duration))
+                melody_onset_duration_tracker = pointer_onset + pointer_duration
+                # Update the pointer
+                pointer_pitch = current_pitch
+                pointer_velocity = current_velocity
+                pointer_onset = current_onset
+                pointer_duration = current_duration
+            else:
+                if current_pitch > pointer_pitch:
+                     # Append <t> based on condition
+                    if harmony_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
+                        harmony.append("<T>")
+                    # Append the previous note
+                    harmony.append(("piano", pointer_pitch, pointer_velocity))
+                    harmony.append(("onset", pointer_onset))
+                    harmony.append(("dur", pointer_duration))
+                    harmony_onset_duration_tracker = pointer_onset + pointer_duration
+                    # Update the pointer
+                    pointer_pitch = current_pitch
+                    pointer_velocity = current_velocity
+                    pointer_onset = current_onset
+                    pointer_duration = current_duration
+                else:
+                    # Append <t> based on condition
+                    if harmony_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
+                        harmony.append("<T>")
+                    # Append the previous note
+                    harmony.append(("piano", current_pitch, current_velocity))
+                    harmony.append(("onset", current_onset))
+                    harmony.append(("dur", current_duration))
+                    harmony_onset_duration_tracker = current_onset + current_duration
+                    continue
 
-def e2b(x):
-    return math.floor(2 ** (x / tempo_quant) * min_tempo)
+            # Append the last note
+            if i == len(sequence) - 1: 
+                if diff_curr_prev_onset > diff_threshold:
+                    melody.append(("piano", pointer_pitch, pointer_velocity))
+                    melody.append(("onset", pointer_onset))
+                    melody.append(("dur", pointer_duration))
+                else:
+                    if current_pitch > pointer_pitch:
+                        melody.append(("piano", current_pitch, current_velocity))
+                        melody.append(("onset", current_onset))
+                        melody.append(("dur", current_duration))
+                    else:
+                        harmony.append(("piano", current_pitch, current_velocity))
+                        harmony.append(("onset", current_onset))
+                        harmony.append(("dur", current_duration))
 
-def time_signature_reduce(numerator, denominator):
-    while denominator > 2 ** max_ts_denominator and denominator % 2 == 0 and numerator % 2 == 0:
-        denominator //= 2
-        numerator //= 2
-    while numerator > max_notes_per_bar * denominator:
-        for i in range(2, numerator + 1):
-            if numerator % i == 0:
-                numerator //= i
-                break
-    return numerator, denominator
-
-
-def MIDI_to_encoding(midi_obj):
-    def time_to_pos(t):
-        return round(t * pos_resolution / midi_obj.ticks_per_beat)
-    notes_start_pos = [time_to_pos(j.start)
-                       for i in midi_obj.instruments for j in i.notes]
-    if len(notes_start_pos) == 0:
-        return list()
-    max_pos = max(notes_start_pos) + 1
-
-    pos_to_info = [[None for _ in range(4)] for _ in range(max_pos)]
-    tsc = midi_obj.time_signature_changes
-    tpc = midi_obj.tempo_changes
-    for i in range(len(tsc)):
-        for j in range(time_to_pos(tsc[i].time), time_to_pos(tsc[i + 1].time) if i < len(tsc) - 1 else max_pos):
-            if j < len(pos_to_info):
-                pos_to_info[j][1] = t2e(time_signature_reduce(
-                    tsc[i].numerator, tsc[i].denominator))
-    for i in range(len(tpc)):
-        for j in range(time_to_pos(tpc[i].time), time_to_pos(tpc[i + 1].time) if i < len(tpc) - 1 else max_pos):
-            if j < len(pos_to_info):
-                pos_to_info[j][3] = b2e(tpc[i].tempo)
-    for j in range(len(pos_to_info)):
-        if pos_to_info[j][1] is None:
-            # MIDI default time signature
-            pos_to_info[j][1] = t2e(time_signature_reduce(4, 4))
-        if pos_to_info[j][3] is None:
-            pos_to_info[j][3] = b2e(120.0)  # MIDI default tempo (BPM)
-    cnt = 0
-    bar = 0
-    measure_length = None
-    for j in range(len(pos_to_info)):
-        ts = e2t(pos_to_info[j][1])
-        if cnt == 0:
-            measure_length = ts[0] * beat_note_factor * pos_resolution // ts[1]
-        pos_to_info[j][0] = bar
-        pos_to_info[j][2] = cnt
-        cnt += 1
-        if cnt >= measure_length:
-            assert cnt == measure_length, 'invalid time signature change: pos = {}'.format(
-                j)
-            cnt -= measure_length
-            bar += 1
-    encoding = []
-
-    for inst in midi_obj.instruments:
-        for note in inst.notes:
-            if time_to_pos(note.start) >= trunc_pos:
-                continue
-
-            info = pos_to_info[time_to_pos(note.start)]
-            duration = d2e(time_to_pos(note.end) - time_to_pos(note.start))
-            encoding.append([info[0], info[2], max_inst + 1 if inst.is_drum else inst.program, note.pitch + max_pitch +
-                            1 if inst.is_drum else note.pitch, duration, v2e(note.velocity), info[1], info[3]])
-    if len(encoding) == 0:
-        return list()
-
-    encoding.sort()
-    _, is_major, pitch_shift = normalize_to_c_major(encoding)
-    pitch_shift = 0
-
-    return encoding, is_major, pitch_shift, tpc
-
-
-def encoding_to_MIDI(encoding, tpc, decode_chord):
-    
-    bar_to_timesig = [list()
-                      for _ in range(max(map(lambda x: x[0], encoding)) + 1)]
-    for i in encoding:
-        bar_to_timesig[i[0]].append(i[6])
-    bar_to_timesig = [max(set(i), key=i.count) if len(
-        i) > 0 else None for i in bar_to_timesig]
-    for i in range(len(bar_to_timesig)):
-        if bar_to_timesig[i] is None:
-            bar_to_timesig[i] = t2e(time_signature_reduce(
-                4, 4)) if i == 0 else bar_to_timesig[i - 1]
-    bar_to_pos = [None] * len(bar_to_timesig)
-    cur_pos = 0
-    for i in range(len(bar_to_pos)):
-        bar_to_pos[i] = cur_pos
-        ts = e2t(bar_to_timesig[i])
-        measure_length = ts[0] * beat_note_factor * pos_resolution // ts[1]
-        cur_pos += measure_length
-    pos_to_tempo = [list() for _ in range(
-        cur_pos + max(map(lambda x: x[1], encoding)))]
-    for i in encoding:
-        pos_to_tempo[bar_to_pos[i[0]] + i[1]].append(i[7])
-    pos_to_tempo = [round(sum(i) / len(i)) if len(i) >
-                    0 else None for i in pos_to_tempo]
-    for i in range(len(pos_to_tempo)):
-        if pos_to_tempo[i] is None:
-            pos_to_tempo[i] = b2e(120.0) if i == 0 else pos_to_tempo[i - 1]
- 
-    midi_obj = miditoolkit.midi.parser.MidiFile()
-    midi_obj.tempo_changes = tpc
-
-    def get_tick(bar, pos):
-        return (bar_to_pos[bar] + pos) * midi_obj.ticks_per_beat // pos_resolution
-    midi_obj.instruments = [miditoolkit.containers.Instrument(program=(
-        0 if i == 128 else i), is_drum=(i == 128), name=str(i)) for i in range(128 + 1)]
-
-    for i in encoding:
-        start = get_tick(i[0], i[1])
-        program = i[2]
-
-        if program == 129 and decode_chord:
-            root_name = root_list[i[3]]
-            kind_name = kind_list[i[4]]
-            root_pitch_shift = root_dict[root_name]
-            end = start + get_tick(0, e2d(1))
-            for kind_shift in _CHORD_KIND_PITCHES[kind_name]:
-                pitch = 36 + root_pitch_shift + kind_shift
-                midi_obj.instruments[1].notes.append(miditoolkit.containers.Note(
-                start=start, end=end, pitch=pitch, velocity=e2v(20)))
-        elif program != 129:
-            pitch = (i[3] - 128 if program == 128 else i[3])
-            if pitch < 0:
-                continue
-            duration = get_tick(0, e2d(i[4]))
-            if duration == 0:
-                duration = 1
-            end = start + duration
-            velocity = e2v(i[5])
-
-            midi_obj.instruments[program].notes.append(miditoolkit.containers.Note(
-                start=start, end=end, pitch=pitch, velocity=velocity))
-    midi_obj.instruments = [
-        i for i in midi_obj.instruments if len(i.notes) > 0]
-    cur_ts = None
-    for i in range(len(bar_to_timesig)):
-        new_ts = bar_to_timesig[i]
-        if new_ts != cur_ts:
-            numerator, denominator = e2t(new_ts)
-            midi_obj.time_signature_changes.append(miditoolkit.containers.TimeSignature(
-                numerator=numerator, denominator=denominator, time=get_tick(i, 0)))
-            cur_ts = new_ts
-    cur_tp = None
-    for i in range(len(pos_to_tempo)):
-        new_tp = pos_to_tempo[i]
-        if new_tp != cur_tp:
-            tempo = e2b(new_tp)
-            midi_obj.tempo_changes.append(
-                miditoolkit.containers.TempoChange(tempo=tempo, time=get_tick(0, i)))
-            cur_tp = new_tp
-    return midi_obj
+    return melody, harmony
 
 
 def remi_to_list_encoding(remi_encoding):
@@ -477,9 +376,6 @@ def remi_to_list_encoding(remi_encoding):
             velocity = int(token.split("_")[1])
             note_info['velocity'] = velocity
         elif token.startswith("Duration_"):
-            # duration_value = duration_mapping[token.split("_")[1]]
-            # note_info['duration'] = duration_value
-            # note_info['duration_string'] = token.split("_")[1]
             note_info['duration'] = float(token.split("_")[1])
 
     encoding = []

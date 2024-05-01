@@ -11,7 +11,7 @@ import sys
 from transformations import Phrase_Corruption, Melodic_Development
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
-from utils.utils import list_to_remi_encoding, duration_mapping, find_beats_in_bar
+from utils.utils import list_to_remi_encoding, find_beats_in_bar
 
 
 class JSONDataset(Dataset):

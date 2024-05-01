@@ -2,157 +2,185 @@ import yaml
 import jsonlines
 import glob
 import random
+import os
+import sys
+import pickle
+import argparse
+from torch.utils.data import Dataset
+import torch
+from torch.nn import functional as F
 from aria.data.midi import MidiDict
 from aria.tokenizer import AbsTokenizer
 
-config_path = "/homes/kb658/yinyang/configs/configs_os.yaml"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+from utils.utils import flatten, skyline
 
-# Load config file
-with open(config_path, 'r') as f:
-    configs = yaml.safe_load(f)
+
+class DataLoader(Dataset):
+    def __init__(self, configs, file_list, mode="train", shuffle = False):
+        self.mode = mode
+        # Data dir
+        self.data_dir = configs['raw_data']['json_folder']
+        self.file_list = file_list
+        if shuffle:
+            random.shuffle(self.file_list)
+
+        raw_data_folders = configs["raw_data"]["raw_data_folders"]
+        data_path = raw_data_folders['classical']['folder_path']
+        # self.file_paths = []
+        # for file in self.file_list:
+        #     self.file_paths.append(os.path.join(data_path, file))
+
+        # Artifact folder
+        self.artifact_folder = configs['raw_data']['artifact_folder']
+        # Load encoder tokenizer json file dictionary
+        tokenizer_filepath = os.path.join(self.artifact_folder, "fusion", "vocab.pkl")
+
+        self.aria_tokenizer = AbsTokenizer()
+        # Load the pickled tokenizer dictionary
+        with open(tokenizer_filepath, 'rb') as f:
+            self.tokenizer = pickle.load(f)
+
+        # Get the maximum sequence length
+        self.encoder_max_sequence_length = configs['model']['phrase_generation_model']['encoder_max_sequence_length']
+        self.decoder_max_sequence_length = configs['model']['phrase_generation_model']['decoder_max_sequence_length']
+
+        # Print length of dataset
+        print("Length of dataset: ", len(self.file_list))
+
+    def __len__(self):
+        return len(self.file_list)
     
-artifact_folder = configs["raw_data"]["artifact_folder"]
-mono_folder = configs["raw_data"]["mono_folder"]
-json_folder = configs["raw_data"]["json_folder"]
-raw_data_folders = configs["raw_data"]["raw_data_folders"]
-data_path = raw_data_folders['classical']['folder_path']
+    def transpose(self, encoding, pitch_change):
+        pass
 
-# Get all the midi files in the data path recursively
-midi_files = glob.glob(data_path + '/**/*.midi', recursive=True)
+    def __getitem__(self, idx):
+        file_path = self.file_list[idx]
 
+        mid = MidiDict.from_midi(file_path)
+        tokenized_sequence = self.aria_tokenizer.tokenize(mid)
 
-tokenizer = AbsTokenizer()
-midi_file_path = random.choice(midi_files)
-midi_file_path = "/import/c4dm-datasets/maestro-v3.0.0/2008/MIDI-Unprocessed_07_R2_2008_01-05_ORIG_MID--AUDIO_07_R2_2008_wav--2.midi"
-print(midi_file_path)
-# midi_file_path = midi_files[0]
-mid = MidiDict.from_midi(midi_file_path)
-tokenized_sequence = tokenizer.tokenize(mid)
+        # Take the 3rd token as the start token until the 2nd last token
+        tokenized_sequence = tokenized_sequence[2:] + tokenized_sequence[:-1]
 
+        # Get random crop of the sequence of length max_sequence_length
+        piano_token_indices = [i for i in range(len(tokenized_sequence)) if tokenized_sequence[i][0] == "piano"]
+        # Exclude the last token of piano_token_indices to generate at least one token
+        piano_token_indices = piano_token_indices[:-1]
 
-# Define a function to flatten the tokenized sequence
-def flatten(sequence):
-    flattened_sequence = []
-    note_info = []
-    for i in range(len(sequence)):
-        if sequence[i] == "<T>":
-            flattened_sequence.append(sequence[i])
-        if sequence[i][0] == "piano":
-            note_info.append(sequence[i][1])
-            note_info.append(sequence[i][2])
-        elif sequence[i][0] == "onset":
-            note_info.append(sequence[i][1])
-        elif sequence[i][0] == "dur":
-            note_info.append(sequence[i][1])
-            flattened_sequence.append(note_info) 
-            note_info = []
+        if len(piano_token_indices) > 0:
+            # Choose the start index randomly
+            start_idx = random.choice(piano_token_indices)
+        else:
+            print("No piano tokens found in the sequence for file", file_path)
+            assert len(piano_token_indices) > 0
+        # Crop the sequence
+        end_idx = start_idx + self.encoder_max_sequence_length - 2
+        tokenized_sequence = tokenized_sequence[start_idx:end_idx]
 
-    return flattened_sequence
+        # Call the flatten function
+        flattened_sequence = flatten(tokenized_sequence)
+        # Call the skyline function
+        melody, harmony = skyline(flattened_sequence, diff_threshold=30)
+        # Add the start and end tokens
+        tokenized_sequence = ["<S>"] + tokenized_sequence + ["<E>"]
 
+        # Tokenize the melody and harmony sequences
+        melody = [self.tokenizer[token] for token in melody]
+        harmony = [self.tokenizer[token] for token in harmony]
+        tokenized_sequence = [self.tokenizer[token] for token in tokenized_sequence]
 
-def skyline(sequence: list, diff_threshold=50):
-    melody = []
-    harmony = []
-    pointer_pitch = sequence[0][0]
-    pointer_velocity = sequence[0][1]
-    pointer_onset = sequence[0][2]
-    pointer_duration = sequence[0][3]
-    melody_onset_duration_tracker = pointer_onset + pointer_duration
-    harmony_onset_duration_tracker = pointer_onset + pointer_duration
-    i = 0
+        # Pad the sequences
+        if len(tokenized_sequence) < self.encoder_max_sequence_length:
+            tokenized_sequence = F.pad(torch.tensor(tokenized_sequence), (0, self.encoder_max_sequence_length - len(tokenized_sequence)))
+        else:
+            tokenized_sequence = torch.tensor(tokenized_sequence[:self.encoder_max_sequence_length])
+        if len(melody) < self.encoder_max_sequence_length:
+            melody = F.pad(torch.tensor(melody), (0, self.encoder_max_sequence_length - len(melody)))
+        else:
+            melody = torch.tensor(melody[:self.encoder_max_sequence_length])
+        if len(harmony) < self.encoder_max_sequence_length:
+            harmony = F.pad(torch.tensor(harmony), (0, self.encoder_max_sequence_length - len(harmony)))
+        else:
+            harmony = torch.tensor(harmony[:self.encoder_max_sequence_length])
 
-    for i in range(1, len(sequence)):
-        if type(sequence[i]) != str:
-            current_pitch = sequence[i][0]
-            current_velocity = sequence[i][1]
-            current_onset = sequence[i][2]
-            current_duration = sequence[i][3]
+        # Attention mask based on non-padded tokens of the phrase
+        attention_mask = torch.where(tokenized_sequence != 0, 1, 0).type(torch.bool)
 
-            if type(sequence[i-1]) == str and type(sequence[i-2]) == str:
-                diff_curr_prev_onset = 5000
-            elif type(sequence[i-1]) == str and type(sequence[i-2]) != str:
-                diff_curr_prev_onset = abs(current_onset - sequence[i-2][2])
-            else:
-                diff_curr_prev_onset = abs(current_onset - sequence[i-1][2])
+        train_data = {"input_ids": melody, "labels": tokenized_sequence, "attention_mask": attention_mask}
 
-            if diff_curr_prev_onset > diff_threshold:
-                # Append <t> based on condition
-                if melody_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
-                    melody.append("<T>")
-                # Append the previous note
-                melody.append(("piano", pointer_pitch, pointer_velocity))
-                melody.append(("onset", pointer_onset))
-                melody.append(("dur", pointer_duration))
-                melody_onset_duration_tracker = pointer_onset + pointer_duration
-                # Update the pointer
-                pointer_pitch = current_pitch
-                pointer_velocity = current_velocity
-                pointer_onset = current_onset
-                pointer_duration = current_duration
-            else:
-                if current_pitch > pointer_pitch:
-                     # Append <t> based on condition
-                    if harmony_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
-                        harmony.append("<T>")
-                    # Append the previous note
-                    harmony.append(("piano", pointer_pitch, pointer_velocity))
-                    harmony.append(("onset", pointer_onset))
-                    harmony.append(("dur", pointer_duration))
-                    harmony_onset_duration_tracker = pointer_onset + pointer_duration
-                    # Update the pointer
-                    pointer_pitch = current_pitch
-                    pointer_velocity = current_velocity
-                    pointer_onset = current_onset
-                    pointer_duration = current_duration
-                else:
-                    # Append <t> based on condition
-                    if harmony_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
-                        harmony.append("<T>")
-                    # Append the previous note
-                    harmony.append(("piano", current_pitch, current_velocity))
-                    harmony.append(("onset", current_onset))
-                    harmony.append(("dur", current_duration))
-                    harmony_onset_duration_tracker = current_onset + current_duration
-                    continue
-
-            # Append the last note
-            if i == len(sequence) - 1: 
-                if diff_curr_prev_onset > diff_threshold:
-                    melody.append(("piano", pointer_pitch, pointer_velocity))
-                    melody.append(("onset", pointer_onset))
-                    melody.append(("dur", pointer_duration))
-                else:
-                    if current_pitch > pointer_pitch:
-                        melody.append(("piano", current_pitch, current_velocity))
-                        melody.append(("onset", current_onset))
-                        melody.append(("dur", current_duration))
-                    else:
-                        harmony.append(("piano", current_pitch, current_velocity))
-                        harmony.append(("onset", current_onset))
-                        harmony.append(("dur", current_duration))
-
-    return melody, harmony
+        return train_data
 
 
-# Call the flatten function
-flattened_sequence = flatten(tokenized_sequence)
-print(flattened_sequence[0:100], '\n')
 
-# Call the skyline function
-melody, harmony = skyline(flattened_sequence, diff_threshold=30)
-melody = tokenized_sequence[0:2] + melody + tokenized_sequence[-1:]
-harmony = tokenized_sequence[0:2] + harmony + tokenized_sequence[-1:]
-print(melody[0:100], '\n')
-print(harmony[0:100], '\n')
 
-print(len(tokenized_sequence))
-print(len(melody))
-print(len(harmony))
 
-# mid_dict = tokenizer.detokenize(melody) # mid_dict is a MidiDict object
-# mid = mid_dict.to_midi() # mid is a mido.MidiFile
-# mid.save('test_file_melody.mid')
+if __name__ == "__main__":
 
-# mid_dict = tokenizer.detokenize(harmony) # mid_dict is a MidiDict object
-# mid = mid_dict.to_midi() # mid is a mido.MidiFile
-# mid.save('test_file_harmony.mid')
+    # Parse command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default=os.path.normpath("configs/configs_os.yaml"),
+                        help="Path to the config file")
+    args = parser.parse_args()
+
+    # Load config file
+    with open(args.config, 'r') as f:
+        configs = yaml.safe_load(f)
+        
+    artifact_folder = configs["raw_data"]["artifact_folder"]
+    raw_data_folders = configs["raw_data"]["raw_data_folders"]
+    data_path = raw_data_folders['classical']['folder_path']
+
+    # Get all the midi file names in the data path recursively
+    file_list = glob.glob(data_path + '/**/*.midi', recursive=True)
+
+    # file_list = ["/import/c4dm-datasets/maestro-v3.0.0/2009/MIDI-Unprocessed_10_R1_2009_03-05_ORIG_MID--AUDIO_10_R1_2009_10_R1_2009_04_WAV.midi"]
+    
+    # Call the DataLoader class
+    data_loader = DataLoader(configs, file_list, mode="train", shuffle=True)
+    # Get the first item
+    for n, data in enumerate(data_loader):
+        print(data["input_ids"], '\n')
+        print(data["labels"], '\n')
+        print(data["input_ids"].shape)
+        print(data["labels"].shape)
+        print(data["attention_mask"].shape)
+        if n == 10:
+            break
+
+
+    # # Get all the midi files in the data path recursively
+    # midi_files = glob.glob(data_path + '/**/*.midi', recursive=True)
+
+
+    # tokenizer = AbsTokenizer()
+    # midi_file_path = random.choice(midi_files)
+    # midi_file_path = "/import/c4dm-datasets/maestro-v3.0.0/2008/MIDI-Unprocessed_07_R2_2008_01-05_ORIG_MID--AUDIO_07_R2_2008_wav--2.midi"
+    # print(midi_file_path)
+    # # midi_file_path = midi_files[0]
+    # mid = MidiDict.from_midi(midi_file_path)
+    # tokenized_sequence = tokenizer.tokenize(mid)
+
+    # # Call the flatten function
+    # flattened_sequence = flatten(tokenized_sequence)
+    # print(flattened_sequence[0:100], '\n')
+
+    # # Call the skyline function
+    # melody, harmony = skyline(flattened_sequence, diff_threshold=30)
+    # melody = tokenized_sequence[0:2] + melody + tokenized_sequence[-1:]
+    # harmony = tokenized_sequence[0:2] + harmony + tokenized_sequence[-1:]
+    # print(melody[0:100], '\n')
+    # print(harmony[0:100], '\n')
+
+    # print(len(tokenized_sequence))
+    # print(len(melody))
+    # print(len(harmony))
+
+    # mid_dict = tokenizer.detokenize(melody) # mid_dict is a MidiDict object
+    # mid = mid_dict.to_midi() # mid is a mido.MidiFile
+    # mid.save('test_file_melody.mid')
+
+    # mid_dict = tokenizer.detokenize(harmony) # mid_dict is a MidiDict object
+    # mid = mid_dict.to_midi() # mid is a mido.MidiFile
+    # mid.save('test_file_harmony.mid')
