@@ -9,6 +9,7 @@ artifacts/motif_refinement/
 artifacts/autoregressive_transformer/
 artifacts/cp_transformer/
 artifacts/phrase_similarity/
+artifacts/fusion/
 data/Mono_Midi_Files/
 data/extracted_phrases/
 data/annotations/
