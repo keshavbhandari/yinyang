@@ -51,7 +51,7 @@ class JSONDataset(Dataset):
             self.tokenizer = json.load(f)
 
         # Get the maximum sequence length
-        self.max_sequence_length = configs['model']['phrase_similarity_model']['max_sequence_length']
+        self.max_sequence_length = configs['model']['structure_derivation_model']['max_sequence_length']
 
     def __len__(self):
         return self.length_files

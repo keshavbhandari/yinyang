@@ -22,9 +22,9 @@ args = parser.parse_args()
 with open(args.config, 'r') as f:
     configs = yaml.safe_load(f)
 
-batch_size = configs['training']['phrase_similarity']['batch_size']
-learning_rate = configs['training']['phrase_similarity']['learning_rate']
-epochs = configs['training']['phrase_similarity']['epochs']
+batch_size = configs['training']['structure_derivation']['batch_size']
+learning_rate = configs['training']['structure_derivation']['learning_rate']
+epochs = configs['training']['structure_derivation']['epochs']
 
 # Artifact folder
 artifact_folder = configs['raw_data']['artifact_folder']
@@ -61,15 +61,15 @@ train_phrase_length = len(train_dataset.file_number_phrase_number)
 # Create the encoder-decoder model
 config_encoder = BertConfig()
 config_encoder.vocab_size = vocab_size
-config_encoder.max_position_embeddings = configs['model']['phrase_similarity_model']['max_sequence_length']
-config_encoder.max_length = configs['model']['phrase_similarity_model']['max_sequence_length']
+config_encoder.max_position_embeddings = configs['model']['structure_derivation_model']['max_sequence_length']
+config_encoder.max_length = configs['model']['structure_derivation_model']['max_sequence_length']
 config_encoder.pad_token_id = 0
 config_encoder.bos_token_id = tokenizer["BOS"]
 config_encoder.eos_token_id = tokenizer["EOS"]
-config_encoder.num_hidden_layers = configs['model']['phrase_similarity_model']['num_layers']
-config_encoder.num_attention_heads = configs['model']['phrase_similarity_model']['num_heads']
-config_encoder.hidden_size = configs['model']['phrase_similarity_model']['hidden_size']
-config_encoder.intermediate_size = configs['model']['phrase_similarity_model']['intermediate_size']
+config_encoder.num_hidden_layers = configs['model']['structure_derivation_model']['num_layers']
+config_encoder.num_attention_heads = configs['model']['structure_derivation_model']['num_heads']
+config_encoder.hidden_size = configs['model']['structure_derivation_model']['hidden_size']
+config_encoder.intermediate_size = configs['model']['structure_derivation_model']['intermediate_size']
 config_encoder.num_labels = 2
 
 model = AutoModelForSequenceClassification.from_config(config_encoder)
@@ -115,11 +115,11 @@ training_args = TrainingArguments(
     save_steps=500,
     save_total_limit=1,
     learning_rate=learning_rate,
-    weight_decay= configs['training']['phrase_similarity']['weight_decay'],
+    weight_decay= configs['training']['structure_derivation']['weight_decay'],
     max_steps=int(train_phrase_length//batch_size)*epochs,
     evaluation_strategy="steps",
     eval_steps=500,
-    gradient_accumulation_steps=configs['training']['phrase_similarity']['gradient_accumulation_steps'],
+    gradient_accumulation_steps=configs['training']['structure_derivation']['gradient_accumulation_steps'],
     gradient_checkpointing=True,
     optim="adafactor",
     seed=444,
@@ -135,7 +135,7 @@ training_args = TrainingArguments(
     metric_for_best_model="eval_loss",
     greater_is_better=False,
     report_to="tensorboard",
-    run_name="phrase_similarity",
+    run_name="structure_derivation",
     push_to_hub=False
 )
 

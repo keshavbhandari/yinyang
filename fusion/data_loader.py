@@ -5,6 +5,7 @@ import random
 import os
 import sys
 import pickle
+import json
 import argparse
 from torch.utils.data import Dataset
 import torch
@@ -17,20 +18,12 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 from utils.utils import flatten, skyline
 
 
-class DataLoader(Dataset):
-    def __init__(self, configs, file_list, mode="train", shuffle = False):
+class Fusion_Dataset(Dataset):
+    def __init__(self, configs, data_list, mode="train", shuffle = False):
         self.mode = mode
-        # Data dir
-        self.data_dir = configs['raw_data']['json_folder']
-        self.file_list = file_list
+        self.data_list = data_list
         if shuffle:
-            random.shuffle(self.file_list)
-
-        raw_data_folders = configs["raw_data"]["raw_data_folders"]
-        data_path = raw_data_folders['classical']['folder_path']
-        # self.file_paths = []
-        # for file in self.file_list:
-        #     self.file_paths.append(os.path.join(data_path, file))
+            random.shuffle(self.data_list)
 
         # Artifact folder
         self.artifact_folder = configs['raw_data']['artifact_folder']
@@ -43,23 +36,25 @@ class DataLoader(Dataset):
             self.tokenizer = pickle.load(f)
 
         # Get the maximum sequence length
-        self.encoder_max_sequence_length = configs['model']['phrase_generation_model']['encoder_max_sequence_length']
-        self.decoder_max_sequence_length = configs['model']['phrase_generation_model']['decoder_max_sequence_length']
+        self.encoder_max_sequence_length = configs['model']['fusion_model']['encoder_max_sequence_length']
+        self.decoder_max_sequence_length = configs['model']['fusion_model']['decoder_max_sequence_length']
 
         # Print length of dataset
-        print("Length of dataset: ", len(self.file_list))
+        print("Length of dataset: ", len(self.data_list))
 
     def __len__(self):
-        return len(self.file_list)
+        return len(self.data_list)
     
     def transpose(self, encoding, pitch_change):
         pass
 
     def __getitem__(self, idx):
-        file_path = self.file_list[idx]
+        tokenized_sequence = self.data_list[idx]
 
-        mid = MidiDict.from_midi(file_path)
-        tokenized_sequence = self.aria_tokenizer.tokenize(mid)
+        # mid = MidiDict.from_midi(file_path)
+        # tokenized_sequence = self.aria_tokenizer.tokenize(mid)
+        # pitch_aug_function = self.aria_tokenizer.export_pitch_aug(1)
+        # new_sequence = pitch_aug_function(tokenized_sequence)
 
         # Take the 3rd token as the start token until the 2nd last token
         tokenized_sequence = tokenized_sequence[2:] + tokenized_sequence[:-1]
@@ -73,10 +68,10 @@ class DataLoader(Dataset):
             # Choose the start index randomly
             start_idx = random.choice(piano_token_indices)
         else:
-            print("No piano tokens found in the sequence for file", file_path)
+            print("No piano tokens found in the sequence for file")
             assert len(piano_token_indices) > 0
         # Crop the sequence
-        end_idx = start_idx + self.encoder_max_sequence_length - 2
+        end_idx = start_idx + self.decoder_max_sequence_length - 2
         tokenized_sequence = tokenized_sequence[start_idx:end_idx]
 
         # Call the flatten function
@@ -88,25 +83,25 @@ class DataLoader(Dataset):
 
         # Tokenize the melody and harmony sequences
         melody = [self.tokenizer[token] for token in melody]
-        harmony = [self.tokenizer[token] for token in harmony]
-        tokenized_sequence = [self.tokenizer[token] for token in tokenized_sequence]
+        # harmony = [self.tokenizer[token] for token in harmony]
+        tokenized_sequence = [self.tokenizer[tuple(token)] if isinstance(token, list) else self.tokenizer[token] for token in tokenized_sequence]
 
         # Pad the sequences
-        if len(tokenized_sequence) < self.encoder_max_sequence_length:
-            tokenized_sequence = F.pad(torch.tensor(tokenized_sequence), (0, self.encoder_max_sequence_length - len(tokenized_sequence)))
+        if len(tokenized_sequence) < self.decoder_max_sequence_length:
+            tokenized_sequence = F.pad(torch.tensor(tokenized_sequence), (0, self.decoder_max_sequence_length - len(tokenized_sequence))).to(torch.int64)
         else:
-            tokenized_sequence = torch.tensor(tokenized_sequence[:self.encoder_max_sequence_length])
+            tokenized_sequence = torch.tensor(tokenized_sequence[-self.decoder_max_sequence_length:]).to(torch.int64)
         if len(melody) < self.encoder_max_sequence_length:
-            melody = F.pad(torch.tensor(melody), (0, self.encoder_max_sequence_length - len(melody)))
+            melody = F.pad(torch.tensor(melody), (0, self.encoder_max_sequence_length - len(melody))).to(torch.int64)
         else:
-            melody = torch.tensor(melody[:self.encoder_max_sequence_length])
-        if len(harmony) < self.encoder_max_sequence_length:
-            harmony = F.pad(torch.tensor(harmony), (0, self.encoder_max_sequence_length - len(harmony)))
-        else:
-            harmony = torch.tensor(harmony[:self.encoder_max_sequence_length])
+            melody = torch.tensor(melody[-self.encoder_max_sequence_length:]).to(torch.int64)
+        # if len(harmony) < self.encoder_max_sequence_length:
+        #     harmony = F.pad(torch.tensor(harmony), (0, self.encoder_max_sequence_length - len(harmony)))
+        # else:
+        #     harmony = torch.tensor(harmony[-self.encoder_max_sequence_length:])
 
         # Attention mask based on non-padded tokens of the phrase
-        attention_mask = torch.where(tokenized_sequence != 0, 1, 0).type(torch.bool)
+        attention_mask = torch.where(melody != 0, 1, 0).type(torch.bool)
 
         train_data = {"input_ids": melody, "labels": tokenized_sequence, "attention_mask": attention_mask}
 
@@ -132,13 +127,14 @@ if __name__ == "__main__":
     raw_data_folders = configs["raw_data"]["raw_data_folders"]
     data_path = raw_data_folders['classical']['folder_path']
 
-    # Get all the midi file names in the data path recursively
-    file_list = glob.glob(data_path + '/**/*.midi', recursive=True)
-
-    # file_list = ["/import/c4dm-datasets/maestro-v3.0.0/2009/MIDI-Unprocessed_10_R1_2009_03-05_ORIG_MID--AUDIO_10_R1_2009_10_R1_2009_04_WAV.midi"]
+    # Open the train, validation, and test sets json files
+    with open(os.path.join(artifact_folder, "fusion", "train.json"), "r") as f:
+        train_sequences = json.load(f)
+    with open(os.path.join(artifact_folder, "fusion", "valid.json"), "r") as f:
+        valid_sequences = json.load(f)
     
-    # Call the DataLoader class
-    data_loader = DataLoader(configs, file_list, mode="train", shuffle=True)
+    # Call the Fusion_Dataset class
+    data_loader = Fusion_Dataset(configs, train_sequences, mode="train", shuffle=True)
     # Get the first item
     for n, data in enumerate(data_loader):
         print(data["input_ids"], '\n')
