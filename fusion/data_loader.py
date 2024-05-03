@@ -7,6 +7,7 @@ import sys
 import pickle
 import json
 import argparse
+import numpy as np
 from torch.utils.data import Dataset
 import torch
 from torch.nn import functional as F
@@ -51,13 +52,12 @@ class Fusion_Dataset(Dataset):
     def __getitem__(self, idx):
         tokenized_sequence = self.data_list[idx]
 
-        # mid = MidiDict.from_midi(file_path)
-        # tokenized_sequence = self.aria_tokenizer.tokenize(mid)
-        # pitch_aug_function = self.aria_tokenizer.export_pitch_aug(1)
-        # new_sequence = pitch_aug_function(tokenized_sequence)
+        # Apply pitch augmentation
+        pitch_aug_function = self.aria_tokenizer.export_pitch_aug(5)
+        tokenized_sequence = pitch_aug_function(tokenized_sequence)
 
         # Take the 3rd token as the start token until the 2nd last token
-        tokenized_sequence = tokenized_sequence[2:] + tokenized_sequence[:-1]
+        tokenized_sequence = tokenized_sequence[2:-1]
 
         # Get random crop of the sequence of length max_sequence_length
         piano_token_indices = [i for i in range(len(tokenized_sequence)) if tokenized_sequence[i][0] == "piano"]
@@ -77,7 +77,7 @@ class Fusion_Dataset(Dataset):
         # Call the flatten function
         flattened_sequence = flatten(tokenized_sequence)
         # Call the skyline function
-        melody, harmony = skyline(flattened_sequence, diff_threshold=30)
+        melody, harmony = skyline(flattened_sequence, diff_threshold=30, static_velocity=True)
         # Add the start and end tokens
         tokenized_sequence = ["<S>"] + tokenized_sequence + ["<E>"]
 

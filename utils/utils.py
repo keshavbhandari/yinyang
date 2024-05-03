@@ -257,7 +257,7 @@ def flatten(sequence):
     return flattened_sequence
 
 # Skyline function for separating melody and harmony from the tokenized sequence
-def skyline(sequence: list, diff_threshold=50):
+def skyline(sequence: list, diff_threshold=50, static_velocity=True):
     melody = []
     harmony = []
     pointer_pitch = sequence[0][0]
@@ -287,7 +287,10 @@ def skyline(sequence: list, diff_threshold=50):
                 if melody_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
                     melody.append("<T>")
                 # Append the previous note
-                melody.append(("piano", pointer_pitch, pointer_velocity))
+                if static_velocity:
+                    melody.append(("piano", pointer_pitch, 90))
+                else:
+                    melody.append(("piano", pointer_pitch, pointer_velocity))
                 melody.append(("onset", pointer_onset))
                 melody.append(("dur", pointer_duration))
                 melody_onset_duration_tracker = pointer_onset + pointer_duration
@@ -325,12 +328,18 @@ def skyline(sequence: list, diff_threshold=50):
             # Append the last note
             if i == len(sequence) - 1: 
                 if diff_curr_prev_onset > diff_threshold:
-                    melody.append(("piano", pointer_pitch, pointer_velocity))
+                    if static_velocity:
+                        melody.append(("piano", pointer_pitch, 90))
+                    else:
+                        melody.append(("piano", pointer_pitch, pointer_velocity))
                     melody.append(("onset", pointer_onset))
                     melody.append(("dur", pointer_duration))
                 else:
                     if current_pitch > pointer_pitch:
-                        melody.append(("piano", current_pitch, current_velocity))
+                        if static_velocity:
+                            melody.append(("piano", current_pitch, 90))
+                        else:
+                            melody.append(("piano", current_pitch, current_velocity))
                         melody.append(("onset", current_onset))
                         melody.append(("dur", current_duration))
                     else:

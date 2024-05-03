@@ -5,6 +5,7 @@ import json
 import pickle
 import os
 import random
+import torch
 from torch import Tensor, argmax
 from transformers import EncoderDecoderModel, EncoderDecoderConfig, BertConfig, Trainer, TrainingArguments, EarlyStoppingCallback
 from evaluate import load as load_metric
@@ -61,8 +62,8 @@ config_encoder.vocab_size = vocab_size
 config_encoder.max_position_embeddings = configs['model']['fusion_model']['encoder_max_sequence_length']
 config_encoder.max_length = configs['model']['fusion_model']['encoder_max_sequence_length']
 config_encoder.pad_token_id = 0
-# config_encoder.bos_token_id = tokenizer["<S>"]
-# config_encoder.eos_token_id = tokenizer["<E>"]
+config_encoder.bos_token_id = tokenizer["<S>"]
+config_encoder.eos_token_id = tokenizer["<E>"]
 config_encoder.num_hidden_layers = configs['model']['fusion_model']['num_layers']
 config_encoder.num_attention_heads = configs['model']['fusion_model']['num_heads']
 config_encoder.hidden_size = configs['model']['fusion_model']['hidden_size']
@@ -86,11 +87,17 @@ config_decoder.add_cross_attention = True
 config_decoder.tie_encoder_decoder = False
 config_decoder.tie_word_embeddings = False
 
+# # Use pretrained model if it exists in the artifact folder to continue training
+# model_path = os.path.join(artifact_folder, "fusion", "model")
+# if os.path.exists(model_path):
+#     model = EncoderDecoderModel.from_pretrained(model_path)    
+#     print("Loaded model from pre-trained model")
+# else:
 config = EncoderDecoderConfig.from_encoder_decoder_configs(config_encoder, config_decoder)
 model = EncoderDecoderModel(config=config)
-# config.max_length = configs['model']['fusion_model']['max_sequence_length']
 config.decoder_start_token_id = tokenizer["<S>"]
 config.pad_token_id = 0
+print("Created new model")
 
 # Print the number of parameters in the model
 num_params = sum(p.numel() for p in model.parameters())
@@ -134,18 +141,22 @@ def preprocess_logits(logits: Tensor, _: Tensor) -> Tensor:
     pred_ids = argmax(logits[0], dim=-1)  # long dtype
     return pred_ids
 
-log_dir = os.path.join(artifact_folder, "fusion", "model", "logs")
+model_dir = os.path.join(artifact_folder, "fusion", "model")
+log_dir = os.path.join(model_dir, "logs")
 # Clear the logs directory before training
 os.system(f"rm -rf {log_dir}")
 
 # Define the training arguments
 training_args = TrainingArguments(
-    output_dir=os.path.join(artifact_folder, "fusion", "model"),
+    output_dir=model_dir,
     per_device_train_batch_size=batch_size,
     per_device_eval_batch_size=batch_size,
     save_strategy="epoch",  # "steps" or "epoch"
     save_total_limit=1,
     learning_rate=learning_rate,
+    lr_scheduler_type="cosine_with_restarts",
+    warmup_ratio=0.3,
+    max_grad_norm=3.0,
     weight_decay= configs['training']['fusion']['weight_decay'],
     num_train_epochs=epochs,
     evaluation_strategy="epoch",
@@ -162,7 +173,7 @@ training_args = TrainingArguments(
     bf16=BF16,
     bf16_full_eval=BF16_EVAL,
     load_best_model_at_end=True,
-    metric_for_best_model="eval_loss",
+    # metric_for_best_model="loss",
     greater_is_better=False,
     report_to="tensorboard",
     run_name="fusion",
@@ -178,7 +189,7 @@ trainer = Trainer(
     eval_dataset=valid_dataset,
     compute_metrics=compute_metrics,
     preprocess_logits_for_metrics=preprocess_logits,
-    callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+    # callbacks=[EarlyStoppingCallback(early_stopping_patience=30)]
 )
 
 # Train and save the model
