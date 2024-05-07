@@ -452,7 +452,7 @@ def transpose_key(current_key, semitones):
     return keys[new_index]
 
 
-def generate(generation_configs, test_file, phrase_refiner_model, phrase_generation_model, phrase_selection_model):
+def generate(generation_configs, test_file, phrase_refiner_model, phrase_generation_model, phrase_selection_model, write_midi=True):
 
     use_phrase_selection = generation_configs['use_phrase_selection']
     print("Using phrase selection: ", use_phrase_selection)
@@ -696,10 +696,14 @@ def generate(generation_configs, test_file, phrase_refiner_model, phrase_generat
     output_folder = "output/yin_yang"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    output_filepath = os.path.join(output_folder, test_file.split(".")[0] + ".mid")
-
-    # Write the structure to a MIDI file
-    encoding_to_midi(structure_midi, tempo_location, time_signature, output_filepath)
+    if write_midi:
+        # Write the structure to a MIDI file
+        output_filepath = os.path.join(output_folder, test_file.split(".")[0] + ".mid")
+        encoding_to_midi(structure_midi, tempo_location, time_signature, output_filepath)
+    else:
+        # Write the structure to a mxl file
+        output_filepath = os.path.join(output_folder, test_file.split(".")[0] + ".mxl")
+        encoding_to_midi(structure_midi, tempo_location, time_signature, output_filepath, write_midi=False)
 
 
 if __name__ == "__main__":
@@ -708,6 +712,7 @@ if __name__ == "__main__":
     generation_configs = configs['generation']
     generate_all = generation_configs['generate_all']
     test_filepath = generation_configs['test_filepath']
+    write_midi = generation_configs['write_midi']
 
     # Load test file list
     with open(os.path.join(artifact_folder, "test_file_list.json"), "r") as f:
@@ -736,4 +741,4 @@ if __name__ == "__main__":
 
         print("Test file: ", test_file)
 
-        generate(generation_configs, test_file, phrase_refiner_model, phrase_generation_model, phrase_selection_model)
+        generate(generation_configs, test_file, phrase_refiner_model, phrase_generation_model, phrase_selection_model, write_midi=write_midi)

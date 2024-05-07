@@ -95,18 +95,6 @@ raw_data:
 
 # generation:
 #   generate_all: false
-#   test_filepath: NLB138204_01.json
-#   use_velocity: false
-#   use_phrase_selection: true
-#   structure: AAAA
-#   phrases_per_section: [5, 5, 5, 5]
-#   ratio:
-#     phrase_generation_frequency: 2
-#     phrase_refinement_frequency: 1
-#     motif_repetition_frequency: 100
-
-# generation:
-#   generate_all: false
 #   test_filepath: belgium1.json
 #   use_velocity: false
 #   use_phrase_selection: true
@@ -146,3 +134,4 @@ generation:
     phrase_generation_frequency: 2
     phrase_refinement_frequency: 1
     motif_repetition_frequency: 50
+  write_midi: false # Change to false to write to mxl

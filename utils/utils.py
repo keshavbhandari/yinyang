@@ -75,7 +75,7 @@ def annotation_to_encoding(annotation_file):
     return encoding, time_signature, key_signature, major_or_minor
 
 
-def encoding_to_midi(encoding, tempo_dict, time_signature, midi_file_path="output.mid"):
+def encoding_to_midi(encoding, tempo_dict, time_signature, midi_file_path="output.mid", write_midi=True):
     time_signature = time_signature.split("_")[1]
 
     # Create a Score
@@ -120,7 +120,10 @@ def encoding_to_midi(encoding, tempo_dict, time_signature, midi_file_path="outpu
 
     # Write the Score to a MIDI file
     # midi_file_path = "output.mid"
-    score.write('midi', fp=midi_file_path)
+    if write_midi:
+        score.write('midi', fp=midi_file_path)
+    else:
+        score.write('musicxml', fp=midi_file_path)
 
 
 pos_resolution = 4 # 16  # per beat (quarter note)
