@@ -52,7 +52,7 @@ train_dataset = Fusion_Dataset(configs, train_sequences, mode="train")
 valid_dataset = Fusion_Dataset(configs, valid_sequences, mode="eval")
 
 # Get the vocab size
-vocab_size = len(tokenizer)
+vocab_size = len(tokenizer)+1
 # Get the phrase length
 train_length = len(train_dataset.data_list)
 

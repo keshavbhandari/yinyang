@@ -30,7 +30,7 @@ model:
     projection_size: 128
   fusion_model:
     encoder_max_sequence_length: 1024
-    decoder_max_sequence_length: 1024
+    decoder_max_sequence_length: 512
     num_layers: 12
     num_heads: 8
     hidden_size: 512
@@ -66,8 +66,8 @@ training:
     weight_decay: 0.01
     gradient_accumulation_steps: 1
   fusion:
-    epochs: 2000
-    batch_size: 64
+    epochs: 700
+    batch_size: 80
     learning_rate: 0.0001
     weight_decay: 0.01
     gradient_accumulation_steps: 1
@@ -88,6 +88,12 @@ raw_data:
       annotation_filepath: data/annotations/MTC-FS-INST-2.0_sequences-1.1.jsonl/mtcfsinst_sequences.jsonl
     classical:
       folder_path: /import/c4dm-datasets/maestro-v3.0.0
+      file_extension: midi
+    pop:
+      folder_path: /import/c4dm-datasets-ext/POP909
+      file_extension: mid
+    jazz:
+      folder_path: /import/c4dm-datasets/PiJAMA/data/midi
       file_extension: midi
   mono_folder: data/Mono_Midi_Files
   json_folder: data/extracted_phrases

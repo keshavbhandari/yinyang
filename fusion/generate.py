@@ -54,7 +54,7 @@ fusion_model.eval()
 fusion_model.to("cuda" if cuda_available() else "cpu")
 
 
-file_path = os.path.join("/homes/kb658/yinyang/output/yin_yang/deut2034.mid")
+file_path = os.path.join("/homes/kb658/yinyang/output/yin_yang/oestr019_YY.mid")
 # file_path = os.path.join("/import/c4dm-datasets/maestro-v3.0.0/2008/MIDI-Unprocessed_07_R2_2008_01-05_ORIG_MID--AUDIO_07_R2_2008_wav--2.midi")
 mid = MidiDict.from_midi(file_path)
 aria_tokenizer = AbsTokenizer()
@@ -62,7 +62,7 @@ tokenized_sequence = aria_tokenizer.tokenize(mid)
 instrument_token = tokenized_sequence[0]
 tokenized_sequence = tokenized_sequence[2:-1]
 # Call the flatten function
-flattened_sequence = flatten(tokenized_sequence)
+flattened_sequence = flatten(tokenized_sequence, add_special_tokens=True)
 # Call the skyline function
 tokenized_sequence, harmony = skyline(flattened_sequence, diff_threshold=30, static_velocity=True)
 tokenized_sequence = [tokenizer[tuple(token)] if isinstance(token, list) else tokenizer[token] for token in tokenized_sequence]
@@ -74,7 +74,7 @@ else:
 
 # Generate the sequence
 input_ids = tokenized_sequence.unsqueeze(0).to("cuda" if cuda_available() else "cpu")
-output = fusion_model.generate(input_ids, decoder_start_token_id=tokenizer["<S>"], max_length=decoder_max_sequence_length, num_beams=1, do_sample=True, early_stopping=False, temperature=1.0)
+output = fusion_model.generate(input_ids, decoder_start_token_id=tokenizer["<S>"], max_length=decoder_max_sequence_length, num_beams=1, do_sample=True, early_stopping=False, temperature=0.95)
 
 # Decode the generated sequences
 generated_sequences = [decode_tokenizer[token] for token in output[0].tolist()]

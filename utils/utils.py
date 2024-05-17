@@ -241,12 +241,13 @@ def normalize_to_c_major(e):
 
 
 # Define a function to flatten the tokenized sequence
-def flatten(sequence):
+def flatten(sequence, add_special_tokens=True):
     flattened_sequence = []
     note_info = []
     for i in range(len(sequence)):
-        if sequence[i] == "<T>":
-            flattened_sequence.append(sequence[i])
+        if add_special_tokens:
+            if sequence[i] == "<T>" or sequence[i] == "<D>":
+                flattened_sequence.append(sequence[i])
         if sequence[i][0] == "piano":
             note_info.append(sequence[i][1])
             note_info.append(sequence[i][2])
@@ -258,6 +259,39 @@ def flatten(sequence):
             note_info = []
 
     return flattened_sequence
+
+# Reverse the flattened function
+def unflatten(sequence, static_velocity=False):
+    unflattened_sequence = []
+    for i in range(len(sequence)):
+        if sequence[i] == "<T>":
+            unflattened_sequence.append("<T>")
+            continue
+        elif sequence[i] == "<D>":
+            unflattened_sequence.append("<D>")
+            continue
+        else:
+            if static_velocity:
+                note_info = ("piano", sequence[i][0], 90)
+            else:
+                note_info = ("piano", sequence[i][0], sequence[i][1])
+            unflattened_sequence.append(note_info)
+            note_info = ("onset", sequence[i][2])
+            unflattened_sequence.append(note_info)
+            note_info = ("dur", sequence[i][3])
+            unflattened_sequence.append(note_info)
+            note_info = []
+            
+            if i < len(sequence)-1:
+                if sequence[i+1] == "<T>":
+                    continue
+                elif sequence[i+1] == "<D>":
+                    continue
+                else: 
+                    if ((sequence[i][2] + sequence[i][3]) >= 5000 and (sequence[i+1][2] + sequence[i+1][3]) < 5000) or (sequence[i+1][2] < sequence[i][2]):
+                        unflattened_sequence.append("<T>")
+
+    return unflattened_sequence
 
 # Skyline function for separating melody and harmony from the tokenized sequence
 def skyline(sequence: list, diff_threshold=50, static_velocity=True):
@@ -351,6 +385,75 @@ def skyline(sequence: list, diff_threshold=50, static_velocity=True):
                         harmony.append(("dur", current_duration))
 
     return melody, harmony
+
+# Define a function to round a value to the nearest 05
+def round_to_nearest_n(input_value, round_to=0.05):
+    rounded_value = round(round(input_value / round_to) * round_to, 2)
+    return rounded_value
+
+# Find all notes which have the same onset time before n notes and print the average ratio of same note onsets
+def chord_density_ratio(flattened_sequence):
+    same_onset_notes = []
+    total_notes = 0
+    previous_note = None
+    match = False
+    averages = []
+    for i in range(len(flattened_sequence)):
+        # if i % time_frame == 0 and i != 0:
+        if flattened_sequence[i] == "<T>":
+            # Calculate the average number of notes with the same onset time
+            if total_notes == 0:
+                continue
+            average = len(same_onset_notes) / total_notes
+            average = round_to_nearest_n(average)
+            average = ("same_onset_ratio", average)
+            averages.append(average)
+            same_onset_notes = []
+            total_notes = 0
+            continue
+        elif type(flattened_sequence[i]) == str:
+            continue
+        else:
+            if i == 0:
+                previous_note = flattened_sequence[i]
+            elif i < len(flattened_sequence)-1:
+                onset_time = flattened_sequence[i][2]
+                if previous_note is None:
+                    previous_note = flattened_sequence[i]
+                    total_notes += 1
+                    continue
+                # Look at previous note and check if the onset time is the same. If it is then add the previous note to the same_onset_notes list
+                elif abs(onset_time - previous_note[2]) <= 30:
+                    same_onset_notes.append(previous_note)
+                    previous_note = flattened_sequence[i]
+                    total_notes += 1
+                    match = True
+                else:
+                    if match:
+                        same_onset_notes.append(previous_note)
+                    previous_note = flattened_sequence[i]
+                    total_notes += 1
+                    match = False
+            else:
+                onset_time = flattened_sequence[i][2]
+                if previous_note is None:
+                    previous_note = flattened_sequence[i]   
+                elif abs(onset_time - previous_note[2]) <= 30:
+                    same_onset_notes.append(previous_note)
+                    total_notes += 1
+                else:
+                    if match:
+                        same_onset_notes.append(previous_note)
+                    total_notes += 1
+
+    # Calculate the average number of notes with the same onset time for the last time frame
+    if len(same_onset_notes) > 0:
+        average = len(same_onset_notes) / total_notes
+        average = round_to_nearest_n(average)
+        average = ("same_onset_ratio", average)
+        averages.append(average)
+
+    return averages
 
 
 def remi_to_list_encoding(remi_encoding):

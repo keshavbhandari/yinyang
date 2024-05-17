@@ -14,6 +14,7 @@ data/Mono_Midi_Files/
 data/extracted_phrases/
 data/annotations/
 lightning_logs/
+notebooks/
 output/
 artifacts.zip
 data.zip

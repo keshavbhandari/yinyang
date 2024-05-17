@@ -8,6 +8,7 @@ import pickle
 import json
 import argparse
 import numpy as np
+from copy import deepcopy
 from torch.utils.data import Dataset
 import torch
 from torch.nn import functional as F
@@ -16,7 +17,7 @@ from aria.tokenizer import AbsTokenizer
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
-from utils.utils import flatten, skyline
+from utils.utils import flatten, unflatten, skyline, chord_density_ratio
 
 
 class Fusion_Dataset(Dataset):
@@ -45,22 +46,44 @@ class Fusion_Dataset(Dataset):
 
     def __len__(self):
         return len(self.data_list)
-    
-    def transpose(self, encoding, pitch_change):
-        pass
 
-    def __getitem__(self, idx):
-        tokenized_sequence = self.data_list[idx]
+    def get_melody_provided_sequences(self, target_sequence, melody_indices):
+        
+        # Call the flatten function
+        flattened_sequence = flatten(target_sequence, add_special_tokens=True)
+        flattened_sequence_no_sp_tokens = flatten(target_sequence, add_special_tokens=False)
+        # Get random crop of the flattened sequence of length max_sequence_length
+        if len(flattened_sequence) <= self.decoder_max_sequence_length:
+            start_idx = 0
+        else:
+            # Choose the start index randomly between 0 and the length of the sequence minus the max_sequence_length divided by 2 so there is always something to generate
+            start_idx = random.randint(0, len(flattened_sequence) - self.decoder_max_sequence_length/2)
 
-        # Apply pitch augmentation
-        pitch_aug_function = self.aria_tokenizer.export_pitch_aug(5)
-        tokenized_sequence = pitch_aug_function(tokenized_sequence)
+        end_idx = start_idx + self.decoder_max_sequence_length - 2
+        target_sequence = flattened_sequence[start_idx:end_idx]
+        if start_idx == 0:
+            context_sequence = []
+        else:
+            context_sequence = flattened_sequence[0:start_idx]
+        
+        melody = [value for i, value in enumerate(flattened_sequence_no_sp_tokens) if int(start_idx) <= i < int(end_idx) and i in melody_indices]
 
+        # Get chord density ratio
+        chord_density = chord_density_ratio(target_sequence)
+
+        # Unflatten the sequences
+        melody = unflatten(melody, static_velocity=True) 
+        context_sequence = unflatten(context_sequence, static_velocity=False)
+        target_sequence = unflatten(target_sequence, static_velocity=False)
+
+        return target_sequence, melody, context_sequence, chord_density
+
+    def get_melody_extracted_sequences(self, target_sequence):
         # Take the 3rd token as the start token until the 2nd last token
-        tokenized_sequence = tokenized_sequence[2:-1]
+        target_sequence = target_sequence[2:-1]
 
         # Get random crop of the sequence of length max_sequence_length
-        piano_token_indices = [i for i in range(len(tokenized_sequence)) if tokenized_sequence[i][0] == "piano"]
+        piano_token_indices = [i for i in range(len(target_sequence)) if target_sequence[i][0] == "piano"]
         # Exclude the last token of piano_token_indices to generate at least one token
         piano_token_indices = piano_token_indices[:-1]
 
@@ -70,20 +93,59 @@ class Fusion_Dataset(Dataset):
         else:
             print("No piano tokens found in the sequence for file")
             assert len(piano_token_indices) > 0
+
         # Crop the sequence
         end_idx = start_idx + self.decoder_max_sequence_length - 2
-        tokenized_sequence = tokenized_sequence[start_idx:end_idx]
+        target_sequence = target_sequence[start_idx:end_idx]
+        context_sequence = target_sequence[0:start_idx]
 
         # Call the flatten function
-        flattened_sequence = flatten(tokenized_sequence)
+        flattened_sequence = flatten(target_sequence)
         # Call the skyline function
         melody, harmony = skyline(flattened_sequence, diff_threshold=30, static_velocity=True)
+
+        # Get chord density ratio
+        chord_density = chord_density_ratio(flattened_sequence)
+
+        return target_sequence, melody, context_sequence, chord_density
+        
+
+    def __getitem__(self, idx):
+        sequence_info = self.data_list[idx]
+        genre = sequence_info[-1]
+        tokenized_sequence = sequence_info[0]
+
+        # Apply augmentations
+        pitch_aug_function = self.aria_tokenizer.export_pitch_aug(5)
+        tokenized_sequence = pitch_aug_function(tokenized_sequence)
+
+        meta_tokens = [genre]
+
+        if len(sequence_info) == 2:
+            tokenized_sequence, melody, context, chord_density = self.get_melody_extracted_sequences(tokenized_sequence)
+            if random.random() < 0.5:
+                meta_tokens = meta_tokens + chord_density
+        else:
+            melody_indices = sequence_info[1]
+            if random.random() < 0.5:
+                tokenized_sequence = sequence_info[2]
+                meta_tokens.append("no_bridge")
+            tokenized_sequence, melody, context, chord_density = self.get_melody_provided_sequences(tokenized_sequence, melody_indices)
+            if random.random() < 0.5:
+                meta_tokens = meta_tokens + chord_density
+
+        if random.random() < 0.8:
+            # Add context sequence to the melody with a SEP token
+            input_tokens = context + ["SEP"] + meta_tokens + ["SEP"] + melody
+        else:
+            # Don't add context sequence to the melody
+            input_tokens = meta_tokens + ["SEP"] + melody
+
         # Add the start and end tokens
         tokenized_sequence = ["<S>"] + tokenized_sequence + ["<E>"]
 
         # Tokenize the melody and harmony sequences
-        melody = [self.tokenizer[token] for token in melody]
-        # harmony = [self.tokenizer[token] for token in harmony]
+        input_tokens = [self.tokenizer[tuple(token)] if isinstance(token, list) else self.tokenizer[token] for token in input_tokens]
         tokenized_sequence = [self.tokenizer[tuple(token)] if isinstance(token, list) else self.tokenizer[token] for token in tokenized_sequence]
 
         # Pad the sequences
@@ -91,19 +153,15 @@ class Fusion_Dataset(Dataset):
             tokenized_sequence = F.pad(torch.tensor(tokenized_sequence), (0, self.decoder_max_sequence_length - len(tokenized_sequence))).to(torch.int64)
         else:
             tokenized_sequence = torch.tensor(tokenized_sequence[-self.decoder_max_sequence_length:]).to(torch.int64)
-        if len(melody) < self.encoder_max_sequence_length:
-            melody = F.pad(torch.tensor(melody), (0, self.encoder_max_sequence_length - len(melody))).to(torch.int64)
+        if len(input_tokens) < self.encoder_max_sequence_length:
+            input_tokens = F.pad(torch.tensor(input_tokens), (0, self.encoder_max_sequence_length - len(input_tokens))).to(torch.int64)
         else:
-            melody = torch.tensor(melody[-self.encoder_max_sequence_length:]).to(torch.int64)
-        # if len(harmony) < self.encoder_max_sequence_length:
-        #     harmony = F.pad(torch.tensor(harmony), (0, self.encoder_max_sequence_length - len(harmony)))
-        # else:
-        #     harmony = torch.tensor(harmony[-self.encoder_max_sequence_length:])
+            input_tokens = torch.tensor(input_tokens[-self.encoder_max_sequence_length:]).to(torch.int64)
 
         # Attention mask based on non-padded tokens of the phrase
-        attention_mask = torch.where(melody != 0, 1, 0).type(torch.bool)
+        attention_mask = torch.where(input_tokens != 0, 1, 0).type(torch.bool)
 
-        train_data = {"input_ids": melody, "labels": tokenized_sequence, "attention_mask": attention_mask}
+        train_data = {"input_ids": input_tokens, "labels": tokenized_sequence, "attention_mask": attention_mask}
 
         return train_data
 
@@ -125,16 +183,15 @@ if __name__ == "__main__":
         
     artifact_folder = configs["raw_data"]["artifact_folder"]
     raw_data_folders = configs["raw_data"]["raw_data_folders"]
-    data_path = raw_data_folders['classical']['folder_path']
 
     # Open the train, validation, and test sets json files
     with open(os.path.join(artifact_folder, "fusion", "train.json"), "r") as f:
         train_sequences = json.load(f)
-    with open(os.path.join(artifact_folder, "fusion", "valid.json"), "r") as f:
-        valid_sequences = json.load(f)
+    # with open(os.path.join(artifact_folder, "fusion", "valid.json"), "r") as f:
+    #     valid_sequences = json.load(f)
     
     # Call the Fusion_Dataset class
-    data_loader = Fusion_Dataset(configs, train_sequences, mode="train", shuffle=True)
+    data_loader = Fusion_Dataset(configs, train_sequences, mode="val", shuffle=True)
     # Get the first item
     for n, data in enumerate(data_loader):
         print(data["input_ids"], '\n')
@@ -144,39 +201,3 @@ if __name__ == "__main__":
         print(data["attention_mask"].shape)
         if n == 10:
             break
-
-
-    # # Get all the midi files in the data path recursively
-    # midi_files = glob.glob(data_path + '/**/*.midi', recursive=True)
-
-
-    # tokenizer = AbsTokenizer()
-    # midi_file_path = random.choice(midi_files)
-    # midi_file_path = "/import/c4dm-datasets/maestro-v3.0.0/2008/MIDI-Unprocessed_07_R2_2008_01-05_ORIG_MID--AUDIO_07_R2_2008_wav--2.midi"
-    # print(midi_file_path)
-    # # midi_file_path = midi_files[0]
-    # mid = MidiDict.from_midi(midi_file_path)
-    # tokenized_sequence = tokenizer.tokenize(mid)
-
-    # # Call the flatten function
-    # flattened_sequence = flatten(tokenized_sequence)
-    # print(flattened_sequence[0:100], '\n')
-
-    # # Call the skyline function
-    # melody, harmony = skyline(flattened_sequence, diff_threshold=30)
-    # melody = tokenized_sequence[0:2] + melody + tokenized_sequence[-1:]
-    # harmony = tokenized_sequence[0:2] + harmony + tokenized_sequence[-1:]
-    # print(melody[0:100], '\n')
-    # print(harmony[0:100], '\n')
-
-    # print(len(tokenized_sequence))
-    # print(len(melody))
-    # print(len(harmony))
-
-    # mid_dict = tokenizer.detokenize(melody) # mid_dict is a MidiDict object
-    # mid = mid_dict.to_midi() # mid is a mido.MidiFile
-    # mid.save('test_file_melody.mid')
-
-    # mid_dict = tokenizer.detokenize(harmony) # mid_dict is a MidiDict object
-    # mid = mid_dict.to_midi() # mid is a mido.MidiFile
-    # mid.save('test_file_harmony.mid')
