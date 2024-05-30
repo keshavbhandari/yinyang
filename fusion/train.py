@@ -37,11 +37,15 @@ with open(tokenizer_filepath, "rb") as f:
     tokenizer = pickle.load(f)
 
     
-# Open the train, validation, and test sets json files
-with open(os.path.join(artifact_folder, "fusion", "train.json"), "r") as f:
-    train_sequences = json.load(f)
-with open(os.path.join(artifact_folder, "fusion", "valid.json"), "r") as f:
-    valid_sequences = json.load(f)
+# Open the train, validation, and test sets files
+with open(os.path.join(artifact_folder, "fusion", "train.pkl"), "rb") as f:
+    train_sequences = pickle.load(f)
+with open(os.path.join(artifact_folder, "fusion", "valid.pkl"), "rb") as f:
+    valid_sequences = pickle.load(f)
+# with open(os.path.join(artifact_folder, "fusion", "train.json"), "r") as f:
+#     train_sequences = json.load(f)
+# with open(os.path.join(artifact_folder, "fusion", "valid.json"), "r") as f:
+#     valid_sequences = json.load(f)
 
 # Print length of train, validation, and test sets
 print("Length of train set: ", len(train_sequences))
@@ -178,7 +182,7 @@ training_args = TrainingArguments(
     report_to="tensorboard",
     run_name="fusion",
     push_to_hub=False,
-    dataloader_num_workers=4
+    dataloader_num_workers=5
 )
 
 # Define the Trainer

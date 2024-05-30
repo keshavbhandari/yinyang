@@ -3,6 +3,7 @@ import json
 import pickle
 import os
 import random
+import numpy as np
 import sys
 import argparse
 import torch
@@ -52,9 +53,10 @@ decode_tokenizer = {v: k for k, v in tokenizer.items()}
 fusion_model = EncoderDecoderModel.from_pretrained(os.path.join(artifact_folder, "fusion", "model"))
 fusion_model.eval()
 fusion_model.to("cuda" if cuda_available() else "cpu")
+print("Fusion model loaded")
 
 
-file_path = os.path.join("/homes/kb658/yinyang/output/yin_yang/oestr019_YY.mid")
+file_path = os.path.join("/homes/kb658/yinyang/output/yin_yang/NLB075160_01.mid")
 # file_path = os.path.join("/import/c4dm-datasets/maestro-v3.0.0/2008/MIDI-Unprocessed_07_R2_2008_01-05_ORIG_MID--AUDIO_07_R2_2008_wav--2.midi")
 mid = MidiDict.from_midi(file_path)
 aria_tokenizer = AbsTokenizer()
@@ -62,9 +64,22 @@ tokenized_sequence = aria_tokenizer.tokenize(mid)
 instrument_token = tokenized_sequence[0]
 tokenized_sequence = tokenized_sequence[2:-1]
 # Call the flatten function
-flattened_sequence = flatten(tokenized_sequence, add_special_tokens=True)
+# flattened_sequence = flatten(tokenized_sequence, add_special_tokens=True)
 # Call the skyline function
-tokenized_sequence, harmony = skyline(flattened_sequence, diff_threshold=30, static_velocity=True)
+# tokenized_sequence, harmony = skyline(flattened_sequence, diff_threshold=30, static_velocity=True)
+
+n_t_tokens = len([token for token in tokenized_sequence if token == "<T>"])
+same_onset_ratio_seq = []
+for i in range(n_t_tokens+1):
+    random_onset_ratio = np.random.choice([0.5, 0.55, 0.6, 0.65, 0.7, 0.75])
+    # random_onset_ratio = np.random.choice([0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0])
+    same_onset_ratio_seq.append(("same_onset_ratio", random_onset_ratio))
+print("Same onset ratio sequence:", same_onset_ratio_seq)
+
+# tokenized_sequence = ["pop"] + same_onset_ratio_seq + ["SEP"] + tokenized_sequence
+tokenized_sequence = ["pop"] + ["SEP"] + tokenized_sequence
+
+# Tokenize the sequence
 tokenized_sequence = [tokenizer[tuple(token)] if isinstance(token, list) else tokenizer[token] for token in tokenized_sequence]
 # Pad the sequences
 if len(tokenized_sequence) < encoder_max_sequence_length:
@@ -74,7 +89,7 @@ else:
 
 # Generate the sequence
 input_ids = tokenized_sequence.unsqueeze(0).to("cuda" if cuda_available() else "cpu")
-output = fusion_model.generate(input_ids, decoder_start_token_id=tokenizer["<S>"], max_length=decoder_max_sequence_length, num_beams=1, do_sample=True, early_stopping=False, temperature=0.95)
+output = fusion_model.generate(input_ids, decoder_start_token_id=tokenizer["<S>"], max_length=decoder_max_sequence_length, num_beams=1, do_sample=True, early_stopping=False, temperature=0.8) # 0.75
 
 # Decode the generated sequences
 generated_sequences = [decode_tokenizer[token] for token in output[0].tolist()]

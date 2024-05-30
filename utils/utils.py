@@ -4,7 +4,7 @@ import random
 import copy
 import numpy as np
 import miditoolkit
-from music21 import stream, meter, note, metadata, tempo, converter, instrument, chord
+from music21 import stream, meter, note, metadata, tempo, converter, instrument, chord, key
 
 def find_beats_in_bar(time_signature):
     if time_signature == "null" or time_signature is None:
@@ -75,13 +75,13 @@ def annotation_to_encoding(annotation_file):
     return encoding, time_signature, key_signature, major_or_minor
 
 
-def encoding_to_midi(encoding, tempo_dict, time_signature, midi_file_path="output.mid", write_midi=True):
+def encoding_to_midi(encoding, tempo_dict, time_signature, sharps_flats=None, midi_file_path="output.mid", write_midi=True, piece_name="Yin-Yang Prelude"):
     time_signature = time_signature.split("_")[1]
 
     # Create a Score
     score = stream.Score()
     score.metadata = metadata.Metadata()
-    score.metadata.title = "Your MIDI Score"
+    score.metadata.title = piece_name
 
     # Create a Part for the instrument
     part = stream.Part()
@@ -92,9 +92,13 @@ def encoding_to_midi(encoding, tempo_dict, time_signature, midi_file_path="outpu
 
     # Set the time signature
     time_signature = meter.TimeSignature(time_signature)
-
     # Add the time signature to the Part
     part.append(time_signature)
+
+    # Set the key signature if sharps_flats is not None
+    if sharps_flats is not None:
+        key_signature = key.KeySignature(sharps_flats)
+        part.append(key_signature)
 
     # Iterate through the MIDI data and create Note objects
     for entry in encoding:
@@ -294,7 +298,11 @@ def unflatten(sequence, static_velocity=False):
     return unflattened_sequence
 
 # Skyline function for separating melody and harmony from the tokenized sequence
-def skyline(sequence: list, diff_threshold=50, static_velocity=True):
+def skyline(sequence: list, diff_threshold=50, static_velocity=True, pitch_threshold=None):
+    
+    if pitch_threshold is None:
+        pitch_threshold = 0
+    
     melody = []
     harmony = []
     pointer_pitch = sequence[0][0]
@@ -318,24 +326,28 @@ def skyline(sequence: list, diff_threshold=50, static_velocity=True):
                 diff_curr_prev_onset = abs(current_onset - sequence[i-2][2])
             else:
                 diff_curr_prev_onset = abs(current_onset - sequence[i-1][2])
-
+            
+            # Check if the difference between the current onset and the previous onset is greater than the threshold and the pitch is greater than the threshold
             if diff_curr_prev_onset > diff_threshold:
-                # Append <t> based on condition
-                if melody_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
-                    melody.append("<T>")
-                # Append the previous note
-                if static_velocity:
-                    melody.append(("piano", pointer_pitch, 90))
-                else:
-                    melody.append(("piano", pointer_pitch, pointer_velocity))
-                melody.append(("onset", pointer_onset))
-                melody.append(("dur", pointer_duration))
+
+                if pointer_pitch > pitch_threshold:
+                    # Append <t> based on condition
+                    if melody_onset_duration_tracker > 5000 and pointer_onset + pointer_duration < 5000:
+                        melody.append("<T>")
+                    # Append the previous note
+                    if static_velocity:
+                        melody.append(("piano", pointer_pitch, 90))
+                    else:
+                        melody.append(("piano", pointer_pitch, pointer_velocity))
+                    melody.append(("onset", pointer_onset))
+                    melody.append(("dur", pointer_duration))
+                
                 melody_onset_duration_tracker = pointer_onset + pointer_duration
                 # Update the pointer
                 pointer_pitch = current_pitch
                 pointer_velocity = current_velocity
                 pointer_onset = current_onset
-                pointer_duration = current_duration
+                pointer_duration = current_duration            
             else:
                 if current_pitch > pointer_pitch:
                      # Append <t> based on condition
@@ -365,20 +377,22 @@ def skyline(sequence: list, diff_threshold=50, static_velocity=True):
             # Append the last note
             if i == len(sequence) - 1: 
                 if diff_curr_prev_onset > diff_threshold:
-                    if static_velocity:
-                        melody.append(("piano", pointer_pitch, 90))
-                    else:
-                        melody.append(("piano", pointer_pitch, pointer_velocity))
-                    melody.append(("onset", pointer_onset))
-                    melody.append(("dur", pointer_duration))
+                    if pointer_pitch > pitch_threshold:
+                        if static_velocity:
+                            melody.append(("piano", pointer_pitch, 90))
+                        else:
+                            melody.append(("piano", pointer_pitch, pointer_velocity))
+                        melody.append(("onset", pointer_onset))
+                        melody.append(("dur", pointer_duration))
                 else:
                     if current_pitch > pointer_pitch:
-                        if static_velocity:
-                            melody.append(("piano", current_pitch, 90))
-                        else:
-                            melody.append(("piano", current_pitch, current_velocity))
-                        melody.append(("onset", current_onset))
-                        melody.append(("dur", current_duration))
+                        if current_pitch > pitch_threshold:
+                            if static_velocity:
+                                melody.append(("piano", current_pitch, 90))
+                            else:
+                                melody.append(("piano", current_pitch, current_velocity))
+                            melody.append(("onset", current_onset))
+                            melody.append(("dur", current_duration))
                     else:
                         harmony.append(("piano", current_pitch, current_velocity))
                         harmony.append(("onset", current_onset))

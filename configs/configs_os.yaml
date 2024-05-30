@@ -30,7 +30,7 @@ model:
     projection_size: 128
   fusion_model:
     encoder_max_sequence_length: 1024
-    decoder_max_sequence_length: 512
+    decoder_max_sequence_length: 1024
     num_layers: 12
     num_heads: 8
     hidden_size: 512
@@ -66,8 +66,8 @@ training:
     weight_decay: 0.01
     gradient_accumulation_steps: 1
   fusion:
-    epochs: 700
-    batch_size: 80
+    epochs: 500
+    batch_size: 64
     learning_rate: 0.0001
     weight_decay: 0.01
     gradient_accumulation_steps: 1
@@ -113,27 +113,13 @@ raw_data:
 #     phrase_refinement_frequency: 1
 #     motif_repetition_frequency: 50
 
-# generation:
-#   generate_all: false
-#   test_filepath: danmark1.json
-#   use_velocity: false
-#   use_phrase_selection: true
-#   structure: ABACA
-#   phrases_per_section: [5, 5, 5, 5, 5]
-#   transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
-#   allow_modulation: false
-#   ratio:
-#     phrase_generation_frequency: 2
-#     phrase_refinement_frequency: 1
-#     motif_repetition_frequency: 50
-
 generation:
   generate_all: false
-  test_filepath:
+  test_filepath: NLB129133_01.json
   use_velocity: false
   use_phrase_selection: true
-  structure: ABBAA
-  phrases_per_section: [5, 2, 5, 5, 3]
+  structure: ABBACCA
+  phrases_per_section: [4, 2, 2, 4, 2, 2, 4]
   transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
   allow_modulation: false
   ratio:
@@ -141,3 +127,18 @@ generation:
     phrase_refinement_frequency: 1
     motif_repetition_frequency: 50
   write_midi: false # Change to false to write to mxl
+
+# generation:
+#   generate_all: false
+#   test_filepath:
+#   use_velocity: false
+#   use_phrase_selection: true
+#   structure: ABBAA
+#   phrases_per_section: [5, 2, 5, 5, 3]
+#   transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
+#   allow_modulation: false
+#   ratio:
+#     phrase_generation_frequency: 2
+#     phrase_refinement_frequency: 1
+#     motif_repetition_frequency: 50
+#   write_midi: false # Change to false to write to mxl

@@ -11,6 +11,7 @@ from tqdm import tqdm
 import random
 from copy import deepcopy
 import sys
+import pickle
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -122,7 +123,7 @@ with open(os.path.join(fusion_folder, "valid_file_list.json"), "w") as f:
     json.dump(val_data, f)
 
 
-def store_files_as_json(file_dict, json_folder, file_name="train"):
+def store_files_as_json(file_dict, pickle_folder, file_name="train"):
     aria_tokenizer = AbsTokenizer()
     list_of_tokens = []
     
@@ -130,13 +131,14 @@ def store_files_as_json(file_dict, json_folder, file_name="train"):
         genre = file_dict[file_path]
         if genre == "pop":
             midi_dict = MidiDict.from_midi(file_path)
-            melody_and_accompaniment = deepcopy(midi_dict)
-            melody_note_indices = [index for index, msg in enumerate(midi_dict.note_msgs) if msg["channel"] == 0]
-            melody_and_accompaniment.note_msgs = [msg for msg in midi_dict.note_msgs if msg["channel"] == 0 or msg["channel"] == 2]
+            # melody_and_accompaniment = deepcopy(midi_dict)
+            # melody_note_indices = [index for index, msg in enumerate(midi_dict.note_msgs) if msg["channel"] == 0]
+            # melody_and_accompaniment.note_msgs = [msg for msg in midi_dict.note_msgs if msg["channel"] == 0 or msg["channel"] == 2]
             
-            tokenized_sequence = aria_tokenizer.tokenize(midi_dict)
-            melody_and_accompaniment = aria_tokenizer.tokenize(melody_and_accompaniment)
-            final_seq = [tokenized_sequence, melody_note_indices, melody_and_accompaniment, genre]
+            # tokenized_sequence = aria_tokenizer.tokenize(midi_dict)
+            # melody_and_accompaniment = aria_tokenizer.tokenize(melody_and_accompaniment)
+            # final_seq = [tokenized_sequence, melody_note_indices, melody_and_accompaniment, genre]
+            final_seq = [midi_dict, genre]
             list_of_tokens.append(final_seq)
         else:
             mid = MidiDict.from_midi(file_path)
@@ -144,10 +146,15 @@ def store_files_as_json(file_dict, json_folder, file_name="train"):
             final_seq = [tokenized_sequence, genre]
             list_of_tokens.append(final_seq)
     
-    # Save the list_of_tokens as a json file
-    json_file_path = os.path.join(json_folder, f"{file_name}.json")
-    with open(json_file_path, "w") as f:
-        json.dump(list_of_tokens, f)
+    # Save the list_of_tokens as a pickle file
+    pickle_file_path = os.path.join(pickle_folder, f"{file_name}.pkl")
+    with open(pickle_file_path, "wb") as f:
+        pickle.dump(list_of_tokens, f)
+        
+    # # Save the list_of_tokens as a json file
+    # json_file_path = os.path.join(json_folder, f"{file_name}.json")
+    # with open(json_file_path, "w") as f:
+    #     json.dump(list_of_tokens, f)
 
 # Store the training and validation files as json
 store_files_as_json(train_data, fusion_folder, file_name="train")

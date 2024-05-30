@@ -451,6 +451,58 @@ def transpose_key(current_key, semitones):
     # Return the new key
     return keys[new_index]
 
+def get_sharps_flats(key_signature, major_or_minor):
+    if major_or_minor == "MM_major":
+        if key_signature == "KS_C":
+            return 0
+        elif key_signature == "KS_G":
+            return 1
+        elif key_signature == "KS_D":
+            return 2
+        elif key_signature == "KS_A":
+            return 3
+        elif key_signature == "KS_E":
+            return 4
+        elif key_signature == "KS_B":
+            return 5
+        elif key_signature == "KS_F#":
+            return 6
+        elif key_signature == "KS_F":
+            return -1
+        elif key_signature == "KS_B-":
+            return -2
+        elif key_signature == "KS_E-":
+            return -3
+        elif key_signature == "KS_A-":
+            return -4
+        elif key_signature == "KS_D-":
+            return -5
+    else:
+        if key_signature == "KS_A-":
+            return 0
+        elif key_signature == "KS_E-":
+            return 1
+        elif key_signature == "KS_B-":
+            return 2
+        elif key_signature == "KS_F":
+            return 3
+        elif key_signature == "KS_C":
+            return 4
+        elif key_signature == "KS_G":
+            return 5
+        elif key_signature == "KS_D":
+            return 6
+        elif key_signature == "KS_D-":
+            return -1
+        elif key_signature == "KS_G-":
+            return -2
+        elif key_signature == "KS_C-":
+            return -3
+        elif key_signature == "KS_F-":
+            return -4
+        elif key_signature == "KS_B-":
+            return -5
+
 
 def generate(generation_configs, test_file, phrase_refiner_model, phrase_generation_model, phrase_selection_model, write_midi=True):
 
@@ -689,8 +741,16 @@ def generate(generation_configs, test_file, phrase_refiner_model, phrase_generat
 
             structure_midi += structure['sections'][section][phrase]
 
-    # Fix the bar numbers and onsets of the structure
-    # structure_midi = melodic_development_obj.fix_bars(structure_midi)
+    # Get sharps and flats from the key signature and major or minor
+    sharps_flats = get_sharps_flats(key_signature, major_or_minor)
+
+    # Name the piece based on the structure
+    if len(set(structure_string)) > 2:
+        piece_name = "Yin-Yang Rondo"
+    elif len(set(structure_string)) == 2:
+        piece_name = "Yin-Yang Prelude"
+    else:
+        piece_name = "Yin-Yang Output"
 
     # Create an output folder if it doesn't exist
     output_folder = "output/yin_yang"
@@ -699,11 +759,11 @@ def generate(generation_configs, test_file, phrase_refiner_model, phrase_generat
     if write_midi:
         # Write the structure to a MIDI file
         output_filepath = os.path.join(output_folder, test_file.split(".")[0] + ".mid")
-        encoding_to_midi(structure_midi, tempo_location, time_signature, output_filepath)
+        encoding_to_midi(structure_midi, tempo_location, time_signature, sharps_flats, output_filepath, write_midi=True, piece_name=piece_name)
     else:
         # Write the structure to a mxl file
         output_filepath = os.path.join(output_folder, test_file.split(".")[0] + ".mxl")
-        encoding_to_midi(structure_midi, tempo_location, time_signature, output_filepath, write_midi=False)
+        encoding_to_midi(structure_midi, tempo_location, time_signature, sharps_flats, output_filepath, write_midi=False, piece_name=piece_name)
 
 
 if __name__ == "__main__":
