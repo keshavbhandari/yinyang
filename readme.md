@@ -1,11 +1,11 @@
 # Yin-Yang: Developing Motifs With Long-Term Structure and Controllability
 
-[![Demo Website](#)](https://your-demo-link.com)  
+[![Demo Website](#)](https://keshavbhandari.github.io/portfolio/yin-yang.html)  
 [![ArXiv Paper](#)](https://arxiv.org/abs/your-paper-id)  
 [![Colab Notebook](#)](https://colab.research.google.com/drive/1qsS9pX4grGVVLk4N5W19DZRk9j2ftLN9#scrollTo=byBfZDvFZ5cJ)  
 
-![Generation Framework](images/YY_Generation_Framework.png)
 ![Corruption Refinement Training](images/Corruption_Refinement_Training.png)
+![Generation Framework](images/YY_Generation_Framework.png)
 ---
 
 ## Overview
