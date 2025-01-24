@@ -86,15 +86,6 @@ raw_data:
       folder_path: C:/Users/Keshav/Desktop/QMUL/Research/Datasets/MTC/MTC-FS-INST-2.0/MTC-FS-INST-2.0/krn
       file_extension: krn
       annotation_filepath: data/annotations/MTC-FS-INST-2.0_sequences-1.1.jsonl/mtcfsinst_sequences.jsonl
-    classical:
-      folder_path: /import/c4dm-datasets/maestro-v3.0.0
-      file_extension: midi
-    pop:
-      folder_path: /import/c4dm-datasets-ext/POP909
-      file_extension: mid
-    jazz:
-      folder_path: /import/c4dm-datasets/PiJAMA/data/midi
-      file_extension: midi
   mono_folder: data/Mono_Midi_Files
   json_folder: data/extracted_phrases
   artifact_folder: artifacts
