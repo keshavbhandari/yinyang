@@ -3,15 +3,15 @@
 [![Demo Website](#)](https://your-demo-link.com)  
 [![ArXiv Paper](#)](https://arxiv.org/abs/your-paper-id)  
 [![Colab Notebook](#)](https://colab.research.google.com/drive/1qsS9pX4grGVVLk4N5W19DZRk9j2ftLN9#scrollTo=byBfZDvFZ5cJ)  
-![Methodology Illustration](path/to/corruption-refinement-methodology.png)
-
+![Corruption Refinement Training](images/Corruption Refinement Training.png)
+![Generation Framework](images/YY_Generation_Framework.png)
 ---
 
 ## Overview
 
 Yin-Yang is a novel framework for generating music that maintains long-term structure and motivic development. By leveraging a phrase generator, refiner, and selector model, it achieves the following:
 
-- **Coherent generation** of long melodies with structural cohesion.
+- **Coherent generation** of melodies with long term structure.
 - **Controllability** of musical structure and motivic transformations.
 - **Semi-interpretable outputs** for musical analysis.
 
@@ -77,7 +77,10 @@ To train individual models, use the following commands:
   ```
 
 ## Citation
+
 If you use this repository in your work, please cite:
+
+```plaintext
 @inproceedings{bhandari2025yin,
   title={Yin-Yang: Developing Motifs With Long-Term Structure and Controllability},
   author={Bhandari, Keshav and Wiggins, Geraint A. and Colton, Simon},
