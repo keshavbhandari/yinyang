@@ -2,7 +2,7 @@
 
 🌐 [**Demo Website**](https://keshavbhandari.github.io/portfolio/yin-yang.html)
 
-📄 [**ArXiv Paper**](https://arxiv.org/abs/your-paper-id) 
+📄 [**ArXiv Paper**](https://arxiv.org/abs/2501.17759) 
 
 🚀 [**Run in Colab**](https://colab.research.google.com/drive/1qsS9pX4grGVVLk4N5W19DZRk9j2ftLN9#scrollTo=byBfZDvFZ5cJ)  
 
