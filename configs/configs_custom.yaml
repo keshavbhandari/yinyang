@@ -95,7 +95,7 @@ generation:
     key_signature: "C"
     major_or_minor: "major"
     time_signature: "4/4" # "4/4", "3/4", "2/4", "6/8"
-    tempo: 120
+    tempo: 90
   prompt:
   # The prompt is a list of lists, where each inner list represents a note.
   # Each note is represented by a list of six values: [Bar number, onset, instrument, pitch, duration, velocity]
@@ -104,7 +104,7 @@ generation:
     phrase_1: [[0,0,0,60,0.5,91], [0,0.5,0,60,0.5,91], [0,1,0,67,0.5,91], [0,1.5,0,67,0.5,91], [0,2,0,69,0.5,91], [0,2.5,0,69,0.5,91], [0,3,0,67,1,91], [1,0,0,65,0.5,91], [1,0.5,0,65,0.5,91], [1,1,0,64,0.5,91], [1,1.5,0,64,0.5,91], [1,2,0,62,0.5,91], [1,2.5,0,62,0.5,91], [1,3,0,60,1,91]]
     # phrase_1: [[0,0,0,62,0.25,91],[0,0.25,0,62,0.25,91],[0,0.5,0,67,0.5,91],[0,1,0,67,0.5,91],[0,1.5,0,71,0.5,91],[1,0,0,71,0.25,91],[1,0.25,0,71,0.25,91],[1,0.5,0,74,0.5,91],[1,1,0,76,0.25,91],[1,1.25,0,74,0.25,91],[1,1.5,0,71,0.5,91],[2,0,0,71,0.25,91],[2,0.25,0,71,0.25,91],[2,0.5,0,74,0.5,91],[2,1,0,72,0.5,91],[2,1.5,0,69,0.5,91],[3,0,0,69,0.25,91],[3,0.25,0,69,0.25,91],[3,0.5,0,71,0.5,91],[3,1,0,79,0.5,91],[3,1.5,0,83,0.5,91]]
   use_velocity: false
-  use_phrase_selection: false
+  use_phrase_selection: true
   structure: ABBBAA
   phrases_per_section: [5, 1, 1, 5, 5, 3]
   transformations: [] # "contract_melody", "retrograde_melody_pitch_rhythm", "reduce_melody", "invert_melody_tonal", "expand_melody"
